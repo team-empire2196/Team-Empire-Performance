@@ -99,7 +99,7 @@ const EAGLE = () => `<svg class="eagle-svg" viewBox="0 0 220 130" aria-hidden="t
 </svg>`;
 const SNAKE = () => { const n = 20; let seg = ''; for (let i = n - 1; i >= 0; i--) { const x = 196 - i * 9.2, y = 38 + Math.sin(i * .62) * 8, r = i === 0 ? 8.5 : 7.6 - i * .27; seg += `<circle class="sg" style="animation-delay:${(-i * 0.085).toFixed(2)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(1.8, r).toFixed(1)}" fill="${i % 3 === 0 ? '#1e7a35' : i % 3 === 1 ? '#2fa24b' : '#c9b13a'}"/>`; }
   return `<svg class="snake-svg" viewBox="0 0 220 76" aria-hidden="true"><g>${seg}<g class="sg" style="animation-delay:0s"><circle cx="196" cy="38" r="9" fill="#1e7a35"/><circle cx="199" cy="35" r="2.6" fill="#ffe14d"/><circle cx="200" cy="35" r="1.1" fill="#111"/><path class="tongue" d="M204 40L214 40M214 40L219 36M214 40L219 44" stroke="#e0293a" stroke-width="1.6" fill="none" stroke-linecap="round"/></g></g></svg>`; };
-const CHASE = () => `<div class="snake">${SNAKE()}</div><div class="eagle">${EAGLE()}</div>`;
+const CHASE = () => `<div class="eagle">${EAGLE()}</div>`;   /* snake removed from the login page */
 /* ---------- team stats ---------- */
 function csatTeam(list) { const c = sum(list.map((a) => a.csatCnt)), d = sum(list.map((a) => a.dsatCnt)); return c + d > 0 ? c / (c + d) : null; }
 function fcrTeam(list) { const c = sum(list.map((a) => a.fcrCalls)), f = sum(list.map((a) => a.fcrCount)); return c > 0 ? f / c : avg(list.map((a) => a.fcr)); }
@@ -764,11 +764,12 @@ function startOrbit() {
   cancelAnimationFrame(orbitRaf);
   const tick = (now) => {
     if ($('#welcome').hidden) return;
-    const W = stage.clientWidth, H = stage.clientHeight; const tl = Math.min(W * .5, H * .5, 320); stage.style.setProperty('--tl', tl + 'px');
-    const av = Math.round(tl * .4);                       /* agent photo = 40% of the Team Leader photo */
-    const rx = W / 2 - av / 2 - 6, ry = Math.max(H / 2 - av / 2 - 8, tl / 2 + av * .45); const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
+    const W = stage.clientWidth; const tl = Math.min(W * (W < 600 ? .5 : .4), 400); stage.style.setProperty('--tl', tl + 'px');
+    const av = Math.round(tl * .5);                       /* agent photo = 50% of the Team Leader photo */
+    const ry = tl / 2 + av * .5 + 6, rx = Math.max(W / 2 - av / 2 - 4, ry * 1.15), H = Math.round(2 * (ry + av / 2) + 10); stage.style.height = H + 'px';
+    const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
     els.forEach((el, i) => {
-      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .55 + .45 * dp;
+      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .5 + .5 * dp;
       el.firstElementChild.style.setProperty('--s', av + 'px');
       el.style.transform = `translate(${(W / 2 + rx * Math.sin(th) - av / 2).toFixed(1)}px,${(H / 2 + ry * Math.cos(th) - av / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
       el.style.zIndex = Math.round(dp * 100); el.style.opacity = (.6 + .4 * dp).toFixed(2);
