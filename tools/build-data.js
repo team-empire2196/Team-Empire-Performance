@@ -16,8 +16,9 @@ const Core = require(path.join(__dirname, '..', 'js', 'core.js'));
   const data = await Core.processFile(new Uint8Array(fs.readFileSync(file)), pw || '', JSZip, () => {}, path.basename(file));
   data.at = new Date().toISOString();
   const oldBy = new Map(((prev && prev.agents) || []).map((a) => [a.id, a]));
-  data.agents.forEach((a) => { const o = oldBy.get(a.id); if (o) { if (!a.mobile && o.mobile) a.mobile = o.mobile; a.punch = o.punch || []; } });
+  data.agents.forEach((a) => { const o = oldBy.get(a.id); if (o) { if (!a.mobile && o.mobile) a.mobile = o.mobile; if (!a.otp && o.otp) a.otp = o.otp; a.punch = o.punch || []; } });
   if (prev && prev.punchInfo) data.punchInfo = prev.punchInfo;
+  if (process.env.CONTACTS) { const C = JSON.parse(fs.readFileSync(process.env.CONTACTS, 'utf8')); data.agents.forEach((a) => { const c = C[a.id]; if (c) { if (c.mobile) a.mobile = c.mobile; if (c.otp) a.otp = c.otp; } }); console.log('Contacts applied'); }
   if (punchFile) { const pr = await Core.readPunchFile(new Uint8Array(fs.readFileSync(punchFile)), path.basename(punchFile), '', JSZip); console.log('Punch:', JSON.stringify(Core.applyPunch(data, pr))); }
   data.hist = ((prev && prev.hist) || []).concat([{ t: data.at, month: data.month, n: data.agents.length, avg: data.agents.reduce((s, a) => s + (a.final || 0), 0) / data.agents.length }]).slice(-30);
   const users = [{ id: adminId, pass: adminPass }].concat(data.agents.filter((a) => a.vdi).map((a) => ({ id: a.vdi, pass: agentPass })));

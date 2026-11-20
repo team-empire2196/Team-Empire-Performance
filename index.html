@@ -41,8 +41,9 @@
 <!-- LOGIN GATE -->
 <section class="login" id="login" aria-label="Sign in">
   <div class="chase chase-bg" data-chase></div>
+  <div class="birds" data-birds aria-hidden="true"></div>
   <form class="login-card" id="loginForm" autocomplete="off">
-    <img class="lg" src="logo.png" alt="Team Empire logo">
+    <div class="lg-wrap"><span class="lg-ring"></span><span class="lg-ring r2"></span><img class="lg" src="logo.png" alt="Team Empire logo"></div>
     <h1>Team Empire</h1>
     <p class="sub">Performance Hub · please sign in</p>
     <label for="lid">ID</label><input id="lid" name="id" type="text" placeholder="Genex ID, e.g. genex.surma" autocomplete="username" autocapitalize="off" spellcheck="false" required>
@@ -51,6 +52,18 @@
     <button class="btn primary" id="lbtn" type="submit"><span>Sign in</span></button>
     <div class="login-foot">Better quality, stronger performance</div>
   </form>
+</section>
+
+<!-- WELCOME (after sign-in) -->
+<section class="login welcome" id="welcome" aria-label="Welcome" hidden>
+  <div class="birds" data-birds aria-hidden="true"></div>
+  <div class="wl-in">
+    <div class="stage" id="stage"><div class="orbit" id="orbit"></div>
+      <div class="tl-ph"><span class="tl-glow"></span><img id="tlImg" src="photos/tl.jpg" alt="Team Leader"></div></div>
+    <div class="tl-cap"><small>Team Leader Of Team Empire</small><b>Md Ariful Mowla Neloy</b></div>
+    <button class="btn primary open-dash" id="openDash" type="button">Open Dashboard</button>
+    <div class="wel-row"><div class="soldier" id="soldier"></div><div><h2>Welcome to Team Empire</h2><p>Better quality, stronger performance</p></div></div>
+  </div>
 </section>
 
 <!-- APP -->

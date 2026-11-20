@@ -1,7 +1,7 @@
 /* Team Empire Performance Hub – static site (GitHub Pages). All logic runs in the browser. */
 (() => {
 'use strict';
-const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000', agentPass: '1234' };
+const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000', agentPass: '1234', tlName: 'Md Ariful Mowla Neloy' };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -53,7 +53,7 @@ const SECTIONS = [
   { id: 'lag', name: 'Lag & Adherence', ic: 'i-clock' }, { id: 'aht', name: 'AHT & CFS', ic: 'i-phone' },
   { id: 'punch', name: 'Shift & Punch', ic: 'i-cal' }, { id: 'team', name: 'My all Colleague Details', ic: 'i-user' },
 ];
-const SUBS = ['ce', 'nce', 'emp', 'rtc', 'att', 'dkb', 'dkbabs', 'sd'];
+const SUBS = ['ce', 'nce', 'emp', 'rtc', 'att', 'dkb', 'dkbabs', 'sd', 'comp', 'aht', 'csat', 'brk'];
 const A = () => (S.data ? S.data.agents : []);
 const cur = () => A().find((a) => a.id === S.agent) || null;
 const pool = () => { const c = cur(); return c ? [c] : A(); };
@@ -287,7 +287,7 @@ const DRILL = [
   { k: 'ce', t: 'Critical Error (CE)', ic: 'i-shield' }, { k: 'nce', t: 'Non-Critical (NCE)' }, { k: 'emp', t: 'Empathy' }, { k: 'rtc', t: 'RTC accuracy' },
   { k: 'att', t: 'Attendance' }, { k: 'dkb', t: 'DKB attendance' }, { k: 'sd', t: 'Service delivery' },
 ];
-const KPI_SUB = { ce: 'ce', emp: 'emp', adh: 'att', dkb: 'dkb', sd: 'sd' };
+const KPI_SUB = { ce: 'ce', emp: 'emp', adh: 'att', dkb: 'dkb', sd: 'sd', comp: 'comp', aht: 'aht', csat: 'csat', brk: 'brk' };
 const qaIn = (a, m) => (a.qa || []).filter((r) => !m || r.ym === m);
 const qaMonths = (a) => [...new Set((a.qa || []).map((r) => r.ym).filter(Boolean))].sort().reverse();
 const pickMonth = (months) => (S.month && months.includes(S.month) ? S.month : (months.includes(S.data.ym) ? S.data.ym : months[0] || null));
@@ -325,10 +325,7 @@ function secAgent() {
     <div class="side-r"><div class="grade">${esc(a.cat || '—')}</div></div></div>
   <div class="card reveal" style="--i:1"><h3>Breakdown & reasons</h3><div class="sub">Click any tile to see the exact calls, dates and reasons behind the number. Figures come from the raw sheets.</div>
     <div class="drill">${DRILL.map((d) => `<button data-sub="${d.k}"><small>${esc(d.t)}</small><b class="num">${ds[d.k][0]}</b><span>${esc(ds[d.k][1])}</span></button>`).join('')}</div></div>
-  <div class="card reveal" style="--i:2"><h3>KPI scorecard</h3><div class="sub">Target, actual and marks earned for every parameter. Total ${fNum(a.total, 3)}, final ${fNum(a.final, 3)}. Rows marked with an arrow open their breakdown.</div>
-    <div class="kpi-row hd"><span>Parameter</span><span>Target</span><span>Actual</span><span class="kb">Marks earned</span><span>Status</span></div>
-    ${KPIS.map((k, i) => { const st = kStat(a[k.k], k.max), tg = k.t ? fmtBy[k.tf](a[k.t]) : (k.tgt || '—'); const pr = isN(a[k.k]) ? Math.max(0, a[k.k] / k.max * 100) : 0; const sub = KPI_SUB[k.id]; return `<div class="kpi-row reveal ${sub ? 'click' : ''}" style="--i:${i}" ${sub ? `data-sub="${sub}" role="button" tabindex="0"` : ''}><span class="nm">${esc(k.name)}${sub ? '<span class="go">View breakdown ›</span>' : ''}</span><span class="num t-mute">${tg}</span><span class="num"><b>${k.id === 'brk' && a.xbrk === 0 ? 'None' : fmtBy[k.f](a[k.v])}</b></span><span class="kb"><div class="bar"><i class="${st}" style="--w:${Math.max(2, pr)}%;--i:${i}"></i></div></span><span>${pill(st, isN(a[k.k]) ? (a[k.k] > 0 ? '+' : '') + fNum(a[k.k], 3) : kLabel[st])}</span></div>`; }).join('')}
-  </div>
+  ${kpiCards(a)}
   <div class="grid g-2">
     <div class="card reveal" style="--i:2"><h3>Day-wise CFS score</h3><div class="sub">Monthly: ${fNum(a.csatCnt, 0)} CSAT, ${fNum(a.dsatCnt, 0)} DSAT, ${fPct(a.csat)} score</div>${chart({ labels: days, series: [{ name: 'CFS score %', vals: cfsScore, color: 'var(--sky)' }], target: 93, tl: 'Target 93%', yf: (v) => Math.round(v) + '%', tf: (v) => v.toFixed(1) + '%', aria: 'Day wise CFS score' })}</div>
     <div class="card reveal" style="--i:3"><h3>Day-wise AHT</h3><div class="sub">Monthly: ${fSec(a.aht)} · staff time ${fDur(a.ahtStaff)} · AUX ${fDur(a.ahtAux)}</div>${chart({ labels: days, series: [{ name: 'AHT (s)', vals: a.ahtDay || [] }], target: TARGET_AHT, tl: 'Target 180s', yf: (v) => Math.round(v), tf: (v) => Math.round(v) + ' s', aria: 'Day wise AHT' })}</div>
@@ -338,12 +335,53 @@ function secAgent() {
     <div class="tbl-wrap"><table><thead><tr><th>Day</th><th>Status</th><th class="r">Calls</th><th class="r">AHT</th><th class="r">CSAT</th><th class="r">DSAT</th><th class="r">CFS score</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="num"><b>${r.d}</b></td><td>${r.att === 'p' ? pill('good', 'Present') : r.att === 'a' ? pill('bad', 'Absent') : pill('mute', 'Off')}</td><td class="r num">${r.calls || '—'}</td><td class="r num">${isN(r.aht) ? pill(ahtStat(r.aht, TARGET_AHT), Math.round(r.aht) + ' s') : '—'}</td><td class="r num">${r.c || '—'}</td><td class="r num">${r.s || '—'}</td><td class="r num">${isN(r.sc) ? pill(csatStat(r.sc / 100, TARGET_CSAT), r.sc.toFixed(1) + '%') : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No daily records yet.</td></tr>'}</tbody></table></div></div>`;
 }
 
+/* ----- KPI cards + day-wise breakdown pages (login hours, AHT, CFS, break) ----- */
+const dayLbl = (d) => d + ' ' + String(S.data.month || '').slice(0, 3);
+const hrs = (f) => (isN(f) ? fDur(Math.round(f * 86400)) : '—');
+function rtcOf(a) { const q = qaIn(a, pickMonth(qaMonths(a))), n = q.length, f = q.filter((r) => r.rtc === 'Fail').length; return { n, f, v: n ? 1 - f / n : null }; }
+function kpiCards(a) {
+  const cards = KPIS.map((k, i) => {
+    const st = kStat(a[k.k], k.max), tg = k.t ? fmtBy[k.tf](a[k.t]) : (k.tgt || '—'); const sub = KPI_SUB[k.id];
+    const ach = k.id === 'brk' && a.xbrk === 0 ? 'None' : fmtBy[k.f](a[k.v]); const pr = isN(a[k.k]) ? Math.max(0, a[k.k] / k.max * 100) : 0;
+    return `<div class="card kcard lift reveal ${sub ? 'click' : ''}" style="--i:${Math.min(i, 12)}" ${sub ? `data-sub="${sub}" role="button" tabindex="0"` : ''}>
+      <div class="kc-h"><span>${esc(k.name)}</span>${pill(st, isN(a[k.k]) ? (a[k.k] > 0 ? '+' : '') + fNum(a[k.k], 2) + ' / ' + k.max : kLabel[st])}</div>
+      <div class="kc-v num">${ach}</div><div class="bar"><i class="${st}" style="--w:${Math.max(2, pr)}%;--i:${i}"></i></div>
+      <div class="kc-f"><span>Target<b>${tg}</b></span><span>Achieved<b>${ach}</b></span></div>${sub ? '<div class="go">View breakdown ›</div>' : '<div class="go mute">&nbsp;</div>'}</div>`;
+  });
+  const r = rtcOf(a);
+  cards.splice(1, 0, `<div class="card kcard lift reveal click" style="--i:1" data-sub="rtc" role="button" tabindex="0"><div class="kc-h"><span>RTC Accuracy</span>${pill(r.v == null ? 'mute' : r.f ? 'warn' : 'good', r.v == null ? 'No data' : r.f + ' failed')}</div>
+    <div class="kc-v num">${r.v == null ? '—' : fPct(r.v, 1)}</div><div class="bar"><i class="${r.v == null ? 'mute' : r.f ? 'warn' : 'good'}" style="--w:${r.v == null ? 2 : Math.max(2, r.v * 100)}%"></i></div>
+    <div class="kc-f"><span>Target<b>—</b></span><span>Achieved<b>${r.v == null ? '—' : fPct(r.v, 1)}</b></span></div><div class="go">View breakdown ›</div></div>`);
+  return `<div class="card reveal" style="--i:2"><h3>KPI scorecard</h3><div class="sub">Every parameter with its target and what ${esc(a.name)} achieved. Total ${fNum(a.total, 3)}, final ${fNum(a.final, 3)}. Click a card for the day-wise or call-wise breakdown.</div><div class="kgrid">${cards.join('')}</div></div>`;
+}
+const dtable = (heads, rows, empty) => (rows.length ? `<div class="tbl-wrap"><table><thead><tr>${heads.map((h, i) => `<th class="${i ? 'r' : ''}">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? 'r' : ''} num">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : `<div class="empty">${esc(empty)}</div>`);
+function compPage(a) {
+  const R = (a.attRows || []).filter((r) => r.tr != null && r.tr > 0).slice().sort((x, y) => y.d - x.d);
+  const rows = R.map((r) => { const c = r.rd != null ? r.rd / r.tr : null; return [fD(r.d) + ' <span class="t-mute">' + fWd(r.d) + '</span>', esc(r.sh || '—'), hrs(r.tr), hrs(r.rd), c == null ? '—' : fPct(c, 1), c == null ? pill('mute', 'No data') : c >= 1 ? pill('good', 'Met') : c >= .95 ? pill('warn', 'Short') : pill('bad', 'Below')]; });
+  const tiles = [kvTile('Login hour compliance', fPct(a.comp, 1), 'Month, KPI sheet', a.comp >= 1 ? 'good' : 'warn'), kvTile('Target ready hours', hrs((a.tgtHr || 0) / 86400), 'Month'), kvTile('Ready hours', hrs((a.rdyHr || 0) / 86400), 'Month'), kvTile('Lag time', isN(a.lag) ? fDur(a.lag) : '—', a.lag ? 'Lag recorded' : 'No lag', a.lag ? 'warn' : 'good')];
+  return `<div class="grid g-tiles">${tiles.join('')}</div><div class="card reveal"><h3>Day-wise login hour compliance</h3><div class="sub">Ready time against target ready time for each rostered day (Schedule Attendance Raw)</div>${dtable(['Date', 'Shift', 'Target ready', 'Ready time', 'Compliance', 'Status'], rows, 'No day-wise ready-time rows for this agent.')}</div>`;
+}
+function ahtPage(a) {
+  const rows = S.data.days.map((d, i) => [dayLbl(d), (a.ahtDay || [])[i]]).filter((r) => isN(r[1])).map((r) => [r[0], fSec(r[1]) + ' ' + pill({ good: 'good', warn: 'warn', bad: 'bad' }[ahtStat(r[1], TARGET_AHT)], r[1] <= TARGET_AHT ? 'Within target' : 'Above target')]);
+  return `<div class="grid g-tiles">${[kvTile('Monthly AHT', fSec(a.aht), 'Target ' + (a.ahtT || '180 s'), ahtStat(a.aht, TARGET_AHT) === 'good' ? 'good' : 'warn')].join('')}</div><div class="card reveal"><h3>Date-wise AHT</h3><div class="sub">Average handling time on each day with calls</div>${dtable(['Date', 'AHT'], rows, 'No AHT data for this agent.')}</div>`;
+}
+function csatPage(a) {
+  const rows = S.data.days.map((d, i) => { const c = (a.csatDay || [])[i] || 0, s = (a.dsatDay || [])[i] || 0; return c + s > 0 ? [dayLbl(d), c / (c + s)] : null; }).filter(Boolean).map((r) => [r[0], fPct(r[1], 1) + ' ' + pill(csatStat(r[1], TARGET_CSAT), r[1] >= TARGET_CSAT ? 'On target' : 'Below target')]);
+  return `<div class="grid g-tiles">${[kvTile('Monthly CFS score', fPct(a.csat, 1), 'Target ' + (a.csatT ? fPct(a.csatT, 0) : '93%'), a.csat >= TARGET_CSAT ? 'good' : 'warn')].join('')}</div><div class="card reveal"><h3>Date-wise CFS score</h3><div class="sub">Only days that had survey responses</div>${dtable(['Date', 'CFS score'], rows, 'No CFS responses for this agent.')}</div>`;
+}
+function brkPage(a) {
+  const R = (a.attRows || []).filter((r) => r.bk != null && r.tb != null && r.bk > r.tb + 1 / 86400).slice().sort((x, y) => y.d - x.d);
+  const rows = R.map((r) => [fD(r.d) + ' <span class="t-mute">' + fWd(r.d) + '</span>', esc(r.sh || '—'), hrs(r.tb), hrs(r.bk), pill('bad', '+' + hrs(r.bk - r.tb))]);
+  const tot = sum(R.map((r) => r.bk - r.tb));
+  return `<div class="grid g-tiles">${[kvTile('Extra break (month)', a.xbrk ? fDur(a.xbrk) : 'None', 'KPI sheet', a.xbrk ? 'bad' : 'good'), kvTile('Days with extra break', R.length, 'Dates listed below', R.length ? 'warn' : 'good'), kvTile('Extra break from daily rows', R.length ? hrs(tot) : 'None', 'Sum of the days below', R.length ? 'warn' : 'good')].join('')}</div><div class="card reveal"><h3>Dates with extra break</h3><div class="sub">Break taken above the target break for the shift</div>${dtable(['Date', 'Shift', 'Target break', 'Break taken', 'Extra'], rows, 'No extra break on any day. Well done.')}</div>`;
+}
+
 /* ---------- detail pages (CE, NCE, Empathy, RTC, Attendance, DKB, SD) ---------- */
-const SUB_TITLE = { ce: 'Critical Error (CE) breakdown', nce: 'Non-Critical Error (NCE) breakdown', emp: 'Empathy breakdown', rtc: 'RTC accuracy breakdown', att: 'Attendance breakdown', dkb: 'DKB attendance', dkbabs: 'DKB absent details', sd: 'Service delivery complaints' };
+const SUB_TITLE = { ce: 'Critical Error (CE) breakdown', nce: 'Non-Critical Error (NCE) breakdown', emp: 'Empathy breakdown', rtc: 'RTC accuracy breakdown', att: 'Attendance breakdown', dkb: 'DKB attendance', dkbabs: 'DKB absent details', sd: 'Service delivery complaints', comp: 'Login hour compliance breakdown', aht: 'AHT breakdown', csat: 'CFS (CSAT) breakdown', brk: 'Break time and extra break' };
 function detailPage(a) {
   const k = S.sub;
   const back = `<div class="crumb reveal"><button class="btn" data-sub=""><svg><use href="#i-back"/></svg>My Performance</button>${k === 'dkbabs' ? '<button class="btn" data-sub="dkb"><svg><use href="#i-back"/></svg>DKB attendance</button>' : ''}<span class="who">${avatar(a, 34)}<b>${esc(a.name)}</b><span class="t-mute">ID ${esc(a.id)}</span></span></div>`;
-  const body = k === 'att' ? attPage(a) : k === 'dkb' ? dkbPage(a) : k === 'dkbabs' ? dkbAbsPage(a) : k === 'sd' ? sdPage(a) : qBlock(k, a, true);
+  const body = k === 'att' ? attPage(a) : k === 'dkb' ? dkbPage(a) : k === 'dkbabs' ? dkbAbsPage(a) : k === 'sd' ? sdPage(a) : k === 'comp' ? compPage(a) : k === 'aht' ? ahtPage(a) : k === 'csat' ? csatPage(a) : k === 'brk' ? brkPage(a) : qBlock(k, a, true);
   return `${back}<div class="sec-h reveal"><div><h1>${SUB_TITLE[k]}</h1><p>${esc(a.name)}, ${esc(S.data.month || '')}. Only this agent's rows from the uploaded workbook are shown.</p></div></div>${body}`;
 }
 const monthSel = (months, m, id = 'monthSel') => (months.length > 1 ? `<div class="field"><label for="${id}">Month</label><select id="${id}">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monName(x))}</option>`).join('')}</select></div>` : (months.length ? `<span class="chip">${esc(monName(months[0]))}</span>` : ''));
@@ -587,14 +625,19 @@ function secTeam() {
   const mob = (a) => { const v = S.mobEdit[a.id] != null ? S.mobEdit[a.id] : (a.mobile || '');
     if (S.isAdmin) return `<input class="mob" data-mob="${esc(a.id)}" type="tel" inputmode="tel" placeholder="01XXXXXXXXX" value="${esc(v)}" aria-label="Mobile of ${esc(a.name)}">`;
     return v ? `<a href="tel:${esc(String(v).replace(/[^\d+]/g, ''))}">${esc(v)}</a>` : '<span class="t-mute">Not added</span>'; };
+  const otpC = (a) => { const v = S.otpEdit && S.otpEdit[a.id] != null ? S.otpEdit[a.id] : (a.otp || '');
+    if (S.isAdmin) return `<input class="mob" data-otp="${esc(a.id)}" type="tel" inputmode="tel" placeholder="CIM OTP no." value="${esc(v)}" aria-label="CIM OTP of ${esc(a.name)}">`;
+    if (S.me && S.me.id === a.id && v) return `<a href="tel:${esc(v)}">${esc(v)}</a>`;
+    return '<span class="t-mute">Private</span>'; };
   const have = rows.filter((a) => a.mobile).length;
   const cols = [nameCol('Name'), col('Genex ID', (a) => esc(a.vdi || '—'), { s: (a) => a.vdi || '', x: (a) => a.vdi || '' }),
     col('EID', (a) => esc(a.id), { s: (a) => a.id, x: (a) => a.id }),
-    col('Mobile', mob, { s: (a) => a.mobile || '', x: (a) => a.mobile || '' }),
+    col('Contact number', mob, { s: (a) => a.mobile || '', x: (a) => a.mobile || '' }),
+    col('CIM OTP number', otpC, { s: (a) => a.otp || '', x: (a) => (S.isAdmin ? a.otp || '' : '') }),
     col('Team leader', (a) => esc(a.tl || '—'), { s: (a) => a.tl || '', x: (a) => a.tl || '' }),
     col('Site / LOB', (a) => esc([a.site, a.lob].filter(Boolean).join(' · ') || '—'), { s: (a) => a.site || '', x: (a) => [a.site, a.lob].filter(Boolean).join(' · ') })];
   const adm = S.isAdmin ? `<div class="msg" style="margin:0 0 10px">Admin: type the mobile numbers below, then press <b>Save and publish numbers</b>. Numbers are kept when you upload new Excel files. <button class="btn primary sm" id="mobSave">Save and publish numbers</button></div>` : '';
-  return head('My all Colleague Details', 'Every agent in the KPI sheet with Genex ID and mobile number.') +
+  return head('My all Colleague Details', 'Every agent in the KPI sheet with Genex ID, contact number and CIM OTP number (OTP numbers are visible to the admin, and to each agent for their own).') +
     `<div class="card reveal" style="--i:1"><h3>${rows.length} colleagues</h3><div class="sub">${have} with a mobile number</div>${adm}${table('team', cols, rows, { sort: 0, dir: 'asc' })}</div>`;
 }
 
@@ -695,18 +738,61 @@ function showApp() {
   const h = applyHash(); S.sec = h.sec; S.agent = h.agent; S.sub = h.sub; $('#agentSel').value = S.agent;
   routed = true; render();
 }
+
+/* ---------- birds, soldier and the welcome screen ---------- */
+const BIRD = (c) => `<svg viewBox="0 0 60 30"><g fill="${c}"><ellipse cx="30" cy="16" rx="10" ry="4.5"/><circle cx="41" cy="14" r="3.2"/><path d="M44 13.5l6 1.6-6 1.4z" fill="#f2c26b"/><path d="M20 16l-11 3 12-1z"/><g class="wl"><path d="M30 15C24 8 14 4 5 6c9 1 15 5 20 11z"/></g><g class="wr"><path d="M32 15C38 6 46 2 55 3c-9 2-14 7-18 13z"/></g></g></svg>`;
+function BIRDS(n = 18) {
+  const cols = ['#ffffff', '#cfe6ff', '#f6d9a0', '#9fd3ff', '#ffe9c2', '#dbe9ff'];
+  let h = ''; for (let i = 0; i < n; i++) {
+    const r = (k) => ((Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1 + 1) % 1;
+    h += `<span class="bird" style="--y:${(4 + r(1) * 84).toFixed(1)}%;--s:${(20 + r(2) * 26).toFixed(0)}px;--t:${(16 + r(3) * 18).toFixed(1)}s;--dl:-${(r(4) * 30).toFixed(1)}s;--b:${(2 + r(5) * 3).toFixed(1)}s;--f:${(.28 + r(6) * .3).toFixed(2)}s">${BIRD(cols[i % cols.length])}</span>`;
+  } return h;
+}
+const SOLDIER = () => `<svg viewBox="0 0 100 190"><g><ellipse cx="50" cy="184" rx="30" ry="5" fill="rgba(0,0,0,.3)"/>
+<rect x="33" y="118" width="14" height="60" rx="4" fill="#3d4a2c"/><rect x="53" y="118" width="14" height="60" rx="4" fill="#3d4a2c"/><rect x="30" y="172" width="19" height="11" rx="4" fill="#15171a"/><rect x="51" y="172" width="19" height="11" rx="4" fill="#15171a"/>
+<path d="M28 66c0-8 10-12 22-12s22 4 22 12v56H28z" fill="#55663a"/><path d="M36 74l8 10M52 70l9 12M40 98l7 9M58 94l8 9" stroke="#3b4a27" stroke-width="5" stroke-linecap="round"/><rect x="28" y="108" width="44" height="7" fill="#2b2f24"/><rect x="46" y="107" width="8" height="9" rx="1" fill="#d9ac69"/>
+<path d="M28 68c-8 4-10 22-9 42l10 1c0-14 2-24 6-28z" fill="#55663a"/><rect x="19" y="108" width="11" height="9" rx="4" fill="#e0b48c"/>
+<g class="arm"><path d="M72 68c8 3 16 8 16 18l-9 3c-1-6-5-8-10-10z" fill="#55663a"/><path d="M62 62c10-2 18 2 22 12l-7 3c-3-6-8-8-14-8z" fill="#55663a"/><rect x="80" y="64" width="11" height="9" rx="4" fill="#e0b48c"/></g>
+<rect x="44" y="48" width="12" height="9" fill="#e0b48c"/><circle cx="50" cy="40" r="15" fill="#e0b48c"/><circle cx="45" cy="40" r="1.8" fill="#222"/><circle cx="55" cy="40" r="1.8" fill="#222"/><path d="M45 48c3 2 7 2 10 0" stroke="#8a4b34" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M33 36c0-14 7-22 17-22s17 8 17 22z" fill="#55663a"/><rect x="31" y="34" width="38" height="5" rx="2.5" fill="#3b4a27"/><path d="M50 18l2 4 4 .6-3 3 .8 4-3.8-2-3.8 2 .8-4-3-3 4-.6z" fill="#d9ac69" transform="translate(0 -2) scale(.8) translate(12 6)"/></g></svg>`;
+let orbitRaf = 0;
+function startOrbit() {
+  const stage = $('#stage'), orbit = $('#orbit'); if (!stage || !orbit) return;
+  const ags = A().slice(); const n = ags.length || 0;
+  orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 54)}</div>`).join('');
+  const els = $$('.orb', orbit); const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; const t0 = performance.now();
+  cancelAnimationFrame(orbitRaf);
+  const tick = (now) => {
+    if ($('#welcome').hidden) return;
+    const W = stage.clientWidth, H = stage.clientHeight; const tl = Math.min(W * .4, H * .5, 230); stage.style.setProperty('--tl', tl + 'px');
+    const rx = W / 2 - 34, ry = Math.max(H / 2 - 40, tl / 2 + 34); const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
+    els.forEach((el, i) => {
+      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .5 + .55 * dp;
+      el.style.transform = `translate(${(W / 2 + rx * Math.sin(th) - 27).toFixed(1)}px,${(H / 2 + ry * Math.cos(th) - 27).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+      el.style.zIndex = Math.round(dp * 100); el.style.opacity = (.55 + .45 * dp).toFixed(2);
+    });
+    orbitRaf = requestAnimationFrame(tick);
+  };
+  orbitRaf = requestAnimationFrame(tick);
+}
+function showWelcome() {
+  $('#login').hidden = true; $('#welcome').hidden = false; $('#soldier').innerHTML = SOLDIER();
+  $('#tlImg').addEventListener('error', (e) => { e.target.style.visibility = 'hidden'; }, { once: true });
+  startOrbit();
+}
+function openDashboard() { cancelAnimationFrame(orbitRaf); $('#welcome').hidden = true; safe(() => sessionStorage.setItem('te-welcomed', '1')); showApp(); }
 async function doLogin(id, pw, silent) {
   const btn = $('#lbtn'), err = $('#lerr'); err.hidden = true; btn.disabled = true; btn.firstElementChild.textContent = 'Signing in…';
   try {
     await signIn(id, pw);
     safe(() => sessionStorage.setItem('te-cred', JSON.stringify({ id, pw })));
-    showApp();
+    if (silent || safe(() => sessionStorage.getItem('te-welcomed'))) showApp(); else showWelcome();
   } catch (e) {
     if (!silent) { err.textContent = e.message === 'BAD' ? 'Incorrect ID or password.' : (e.message || 'Could not sign in.'); err.hidden = false; }
     safe(() => sessionStorage.removeItem('te-cred'));
   } finally { btn.disabled = false; btn.firstElementChild.textContent = 'Sign in'; }
 }
-function signOut() { safe(() => sessionStorage.removeItem('te-cred')); S.data = null; S.cred = null; location.hash = ''; location.reload(); }
+function signOut() { safe(() => { sessionStorage.removeItem('te-cred'); sessionStorage.removeItem('te-welcomed'); }); S.data = null; S.cred = null; location.hash = ''; location.reload(); }
 
 /* ---------- Update Data (Excel upload) ---------- */
 const GH = { owner: '', repo: '', branch: 'main' };
@@ -752,7 +838,7 @@ async function readSelected() {
       const prev = (old && old.hist) || [];
       data.hist = prev.concat([{ t: at, month: data.month, n: data.agents.length, avg: avg(data.agents.map((a) => a.final)) }]).slice(-30);
       const oldBy = new Map(((old && old.agents) || []).map((a) => [a.id, a]));
-      data.agents.forEach((a) => { const o = oldBy.get(a.id); if (!o) return; if (!a.mobile && o.mobile) a.mobile = o.mobile; a.punch = o.punch || []; });
+      data.agents.forEach((a) => { const o = oldBy.get(a.id); if (!o) return; if (!a.mobile && o.mobile) a.mobile = o.mobile; if (!a.otp && o.otp) a.otp = o.otp; a.punch = o.punch || []; });
       if (old && old.punchInfo) data.punchInfo = old.punchInfo;
       const qa = sum(data.agents.map((a) => a.qa.length)), sdn = sum(data.agents.map((a) => a.sdRows.length));
       sumKpi = `<h4 style="margin:10px 0 4px">KPI file</h4><dl class="kv"><dt>Team</dt><dd>${esc(CONFIG.team)} · TL ${esc(data.tl)}</dd><dt>Month</dt><dd>${esc(data.month)} (${data.days.length} days)</dd><dt>Agents (KPI sheet)</dt><dd>${data.agents.length}</dd><dt>Average final score</dt><dd>${fNum(avg(data.agents.map((a) => a.final)), 2)}</dd><dt>Audited calls</dt><dd>${qa}</dd><dt>SD complaints</dt><dd>${sdn}</dd></dl>${(data.warnings || []).length ? `<div class="msg warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}`;
@@ -856,7 +942,8 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-dqreset]')) { const k = (S.qctx || {}).kind; if (k) { S.dq[k] = { q: '', from: '', to: '', val: '' }; render(true); } return; }
   if (e.target.closest('[data-open-up]') || e.target.closest('#upBtn')) { openUpload(); return; }
   if (e.target.closest('[data-close]') || e.target.id === 'modal') { closeModal(); return; }
-  if (e.target.closest('#mobSave')) { const ed = S.mobEdit || {}; let n = 0; A().forEach((a) => { if (ed[a.id] != null) { a.mobile = ed[a.id].trim(); } if (a.mobile) n++; }); openMobPublish(n); return; }
+  if (e.target.closest('#openDash')) { openDashboard(); return; }
+  if (e.target.closest('#mobSave')) { const ed = S.mobEdit || {}, eo = S.otpEdit || {}; let n = 0; A().forEach((a) => { if (ed[a.id] != null) a.mobile = ed[a.id].trim(); if (eo[a.id] != null) a.otp = eo[a.id].trim(); if (a.mobile) n++; }); openMobPublish(n); return; }
   if (e.target.closest('#readBtn')) { readSelected(); return; }
   if (e.target.closest('#pubBtn')) { publish(); return; }
   if (e.target.closest('#dlBtn')) { downloadVault(); return; }
@@ -870,6 +957,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modal')) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('click') && e.target.dataset.sub) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('input', (e) => {
   const q = e.target.dataset && e.target.dataset.q; if (q) { S.tstate[q].q = e.target.value; $('#tw-' + q).innerHTML = tableBody(q); return; }
+  if (e.target.dataset && e.target.dataset.otp) { (S.otpEdit = S.otpEdit || {})[e.target.dataset.otp] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.mob) { (S.mobEdit = S.mobEdit || {})[e.target.dataset.mob] = e.target.value; return; }
   const dq = e.target.dataset && e.target.dataset.dq; if (dq && S.qctx) { const k = S.qctx.kind; (S.dq[k] = S.dq[k] || {})[dq] = e.target.value; refreshDq(); }
 });
@@ -910,6 +998,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) live
 
 /* ---------- boot ---------- */
 safe(() => { const t = localStorage.getItem('te-theme'); if (t) document.documentElement.dataset.theme = t; });
+$$('[data-birds]').forEach((el) => { el.innerHTML = BIRDS(el.closest('#welcome') ? 16 : 18); });
 $$('[data-chase]').forEach((el) => { el.innerHTML = CHASE(); });
 $('#loginForm').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#lid').value, $('#lpw').value); });
 const saved = safe(() => JSON.parse(sessionStorage.getItem('te-cred') || 'null'));

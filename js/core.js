@@ -334,7 +334,7 @@ const Core = (() => {
           const rc = row[ci.rostercount] || 0, pc = row[ci.presentcount] || 0;
           const k = dayIdx.get(serialDate(d).getTime());
           if (k != null) { a.cal[k] = pc > 0 ? 'p' : (rc > 0 ? 'a' : 'o'); a.calls[k] = row[ci.acdcalls] || 0; }
-          if (rc > 0) a.attRows.push({ d: Math.floor(d), sh: String(row[ci.roster] || ''), li: isNum(row[ci.logintime]) ? row[ci.logintime] : null, lo: isNum(row[ci.logouttime]) ? row[ci.logouttime] : null, st: isNum(row[ci.loginlogoutstatus]) ? row[ci.loginlogoutstatus] : 0, pc, calls: row[ci.acdcalls] || 0 });
+          if (rc > 0) a.attRows.push({ d: Math.floor(d), sh: String(row[ci.roster] || ''), li: isNum(row[ci.logintime]) ? row[ci.logintime] : null, lo: isNum(row[ci.logouttime]) ? row[ci.logouttime] : null, st: isNum(row[ci.loginlogoutstatus]) ? row[ci.loginlogoutstatus] : 0, tr: isNum(row[ci.targetready]) ? row[ci.targetready] : null, rd: isNum(row[ci.readytime]) ? row[ci.readytime] : null, tb: isNum(row[ci.targetbreak]) ? row[ci.targetbreak] : null, bk: isNum(row[ci.breaktime]) ? row[ci.breaktime] : null, pc, calls: row[ci.acdcalls] || 0 });
         }
         agents.forEach((a) => a.attRows.sort((x, y) => x.d - y.d));
       }

@@ -60,3 +60,7 @@ Photos are matched by **EID** and only shown for agents on the KPI sheet. To add
 ## Honest notes
 - The login is client-side. The data file is encrypted and each login holds its own key, which keeps the data out of casual view. But Genex IDs are easy to guess and `1234` is a short shared password, so treat this as a convenience gate, not strong security. Photos in `photos/` are public to anyone who knows the URL.
 - Audit rows only appear for months present in the raw sheets; the site says so when the raw sheet is older than the KPI month.
+
+## Welcome screen, TL photo and contacts
+- After sign-in a welcome screen shows the Team Leader photo (`photos/tl.jpg`) with the 25 agents orbiting; press **Open Dashboard**. To change the TL photo, replace `photos/tl.jpg`; the name is `tlName` at the top of `js/app.js`.
+- Contact numbers and CIM OTP numbers live only inside the encrypted data file (never as plain files in the repo). Admin edits them on **My all Colleague Details** and presses **Save and publish numbers**. OTP numbers are shown to the admin, and to each agent for their own row. Keep in mind the data is decrypted in every agent's browser, so a technical person could still read it; do not treat it as strong secrecy.
