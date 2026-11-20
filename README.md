@@ -1,22 +1,48 @@
 # Team Empire Performance Hub
 
-A static dashboard (no server, no build step) for GitHub Pages. Sign in with **ID `Team Empire` / Password `0000`**.
+A static dashboard (no server, no build step) for GitHub Pages.
 
-## 1. Put it online (one time)
-1. On github.com create a new **public** repository (e.g. `team-empire`).
-2. Upload **everything in this folder** (drag and drop into the repo; keep the folder structure, including the hidden `.nojekyll` file).
-3. Repo **Settings → Pages → Build from branch → `main` / root → Save**.
-4. After a minute the site is live at `https://<your-username>.github.io/team-empire/`.
+## Logins
+- **Team lead (admin):** ID `Team Empire`, password `0000`. Only the admin sees **Update Data**.
+- **Each agent:** ID = their **Genex ID** (from the Day Wise CFS Tracker sheet, e.g. `genex.surma`), password `1234`. They land on their own My Performance page and can still browse the team pages. The full list is in `login-list.csv` (share it privately; do not upload it to the repo).
+- Agents can change their password with the key button at the top. **It is saved in that browser only**, so on another phone or computer `1234` still applies. A password that works everywhere needs a small login server (e.g. Firebase), which GitHub Pages does not have.
+- New agent on the KPI sheet with a Genex ID gets a login automatically at the next publish.
 
-## 2. Update every time (your Excel)
-1. Open the site, sign in, press **Update Data**.
-2. Choose the new Excel, password `2196`, press **Read file**.
-3. Press **Publish to GitHub** (needs a one-time token, below). Everyone sees the new numbers about a minute later.
-   - No token? Press **Download data file**, then upload that `data.enc.json` into the repo's `data` folder (replace the old one).
+## Step-by-step guide (from zero)
 
-**Create the token once:** GitHub → Settings → Developer settings → Personal access tokens → *Fine-grained* → only this repository → Permissions: **Contents: Read and write**. Paste it in the Update window each time (it is never stored).
+### Part A. Put the dashboard online (one time, about 10 minutes)
+1. Go to github.com and sign in (or create a free account).
+2. Click **+ → New repository**. Name it `team-empire`, choose **Public**, press **Create repository**.
+3. Unzip `team-empire-dashboard.zip` on your computer. Open the unzipped folder.
+4. In the new repository click **Add file → Upload files**. Drag **everything inside the folder** (index.html, README.md, logo.png, css, js, data, photos, tools, and the hidden `.nojekyll` file) into the page. If your computer hides `.nojekyll`, it is fine to skip it, the site still works. Press **Commit changes**.
+5. Open **Settings → Pages**. Under *Build and deployment* choose **Deploy from a branch**, branch **main**, folder **/ (root)**, press **Save**.
+6. Wait one minute. Your site is at `https://YOUR-USERNAME.github.io/team-empire/`. Share this link with the team.
 
-Without a browser: `node tools/build-data.js KPI.xlsx 2196` rewrites `data/data.enc.json`.
+### Part B. Create the GitHub token (one time)
+1. GitHub → your profile picture → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+2. Name: `team-empire`. Expiration: 1 year. **Only select repositories** → `team-empire`.
+3. Under *Permissions → Repository permissions* set **Contents: Read and write**. Press **Generate token** and copy it (you see it only once). Keep it somewhere safe, it is like a password.
+
+### Part C. Every time you have new data (admin only)
+1. Open the site and sign in with **Team Empire / 0000**. Only this login shows the **Update Data** button.
+2. Press **Update Data**. Choose file 1 = **KPI Updated Team Empire** (.xlsx) and type the Excel password `2196`. Choose file 2 = **Punch Data** (.csv or .xlsx). You can upload just one of them; the other stays as it was.
+3. Press **Read files**. Check the summary (agents, month, punch dates).
+4. Paste the token, check Owner and Repo, press **Publish to GitHub**.
+5. Done. Every agent who has the site open sees a "Data updated" message within about two minutes. Others see the new data when they next open the site.
+   - No token? Press **Download data file** and upload that `data.enc.json` into the repo's `data` folder (replace the old one).
+
+### Part D. The login list
+- Every agent logs in with their **Genex ID** (e.g. `genex.surma`) and password **1234**. The list is made automatically from your KPI sheet and the "Day Wise CFS Tracker" sheet, and written to `login-list.csv` (it is NOT in the repo; keep it private and send each person their own line).
+- A new agent added to the KPI sheet gets a login at the next publish. An agent without a Genex ID in the tracker sheet gets no login.
+- Agents can change their password with the key button (saved in that browser only).
+
+### Part E. Mobile numbers (My all Colleague Details)
+Sign in as admin, open **My all Colleague Details** (last menu), type each number, press **Save and publish numbers**. Numbers are kept when you upload new Excel files. Alternative: add a sheet named `Colleague Details` to the KPI workbook with columns `EID` and `Mobile`.
+
+### Part F. Punch file format
+CSV or Excel with columns `Gnx ID, Name, Date, Final Roster, First Punch Date & Time, Last Punch Date & Time` (the standard export). Agents not on the KPI sheet are ignored.
+
+Without a browser: `node tools/build-data.js KPI.xlsx 2196 "Team Empire" 0000 1234 Punch.csv`.
 
 ## 3. Photos
 Photos are matched by **EID** and only shown for agents on the KPI sheet. To add or replace a photo: put `<EID>.jpg` in `photos/` and add one line to `photos/map.json`, e.g. `"20309403": "20309403.jpg"`. Agents without a photo get a default avatar.
@@ -32,5 +58,5 @@ Photos are matched by **EID** and only shown for agents on the KPI sheet. To add
 | Day Wise AHT / CFS Tracker, Escalation & FCR, ORT, Quality & DKB & Quiz Report | Daily AHT/CFS, FCR, break, quiz |
 
 ## Honest notes
-- The login is client-side. The data file is encrypted with a key derived from the ID and password, which keeps it out of casual view, but a 4-digit password can be guessed offline. Use a longer password if the data is sensitive (change it in `js/app.js` `CONFIG`, and the same value when publishing). Photos in `photos/` are public to anyone who knows the URL.
+- The login is client-side. The data file is encrypted and each login holds its own key, which keeps the data out of casual view. But Genex IDs are easy to guess and `1234` is a short shared password, so treat this as a convenience gate, not strong security. Photos in `photos/` are public to anyone who knows the URL.
 - Audit rows only appear for months present in the raw sheets; the site says so when the raw sheet is older than the KPI month.

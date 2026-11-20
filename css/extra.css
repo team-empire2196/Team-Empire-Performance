@@ -1,7 +1,7 @@
-/* ===== Team Empire – extra styles: login, butterfly transition, photos, detail views ===== */
+/* ===== Team Empire – extra styles: login, eagle-and-snake transition, photos, detail views ===== */
 
 /* slow-motion page entrance */
-.section{animation:slowin 1.1s cubic-bezier(.22,.7,.2,1) both}
+.section{animation:slowin .5s cubic-bezier(.22,.7,.2,1) both}
 @keyframes slowin{from{opacity:0;transform:translateY(22px) scale(.992);filter:blur(5px)}60%{filter:blur(0)}to{opacity:1;transform:none}}
 .reveal{animation-duration:.95s;animation-delay:calc(var(--i,0)*80ms + 120ms)}
 
@@ -19,35 +19,6 @@
 .login-card .btn.primary{width:100%;justify-content:center;height:46px;margin-top:18px;font-size:15px}
 .login-err{margin-top:12px;background:rgba(214,64,76,.2);border:1px solid rgba(255,107,118,.5);color:#ffd5d8;padding:9px 12px;border-radius:10px;font-size:13px}
 .login-foot{text-align:center;margin-top:16px;font-size:11.5px;color:#86a5d9}
-.fly-bg{position:absolute;pointer-events:none;opacity:.8}
-.fly-bg.b1{left:8%;top:14%;width:74px;animation:drift 11s ease-in-out infinite alternate}
-.fly-bg.b2{right:9%;bottom:14%;width:54px;animation:drift 14s ease-in-out -4s infinite alternate-reverse}
-.fly-bg.b3{right:22%;top:9%;width:38px;animation:drift 17s ease-in-out -8s infinite alternate}
-@keyframes drift{from{transform:translate(0,0) rotate(-12deg)}50%{transform:translate(40px,-26px) rotate(10deg)}to{transform:translate(-26px,34px) rotate(-6deg)}}
-
-/* butterfly SVG */
-.bf{display:block;width:100%;height:auto;overflow:visible}
-.bf .wing-r,.bf .wing-l{transform-origin:50px 50px;animation:flap .9s ease-in-out infinite}
-.bf .wing-l{animation-name:flap}
-@keyframes flap{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.18)}}
-
-/* page-change overlay: veil + big butterfly in slow motion */
-#fx{position:fixed;inset:0;z-index:150;pointer-events:none;overflow:hidden;visibility:hidden}
-#fx.on{visibility:visible}
-#fx .veil{position:absolute;inset:0;background:linear-gradient(110deg,rgba(7,22,47,.0) 0%,rgba(18,48,102,.55) 45%,rgba(79,189,242,.25) 100%);opacity:0;animation:veil 1.9s ease-in-out both}
-@keyframes veil{0%{opacity:0}28%{opacity:1}55%{opacity:1}100%{opacity:0}}
-#fx .fly{position:absolute;left:0;top:0;width:clamp(110px,14vw,190px);filter:drop-shadow(0 10px 18px rgba(20,60,140,.45));animation:fly 2.4s cubic-bezier(.45,.05,.4,.95) both}
-@keyframes fly{
-  0%{transform:translate(-18vw,72vh) rotate(18deg) scale(.7);opacity:0}
-  10%{opacity:1}
-  25%{transform:translate(18vw,48vh) rotate(-14deg) scale(.95)}
-  45%{transform:translate(42vw,60vh) rotate(16deg) scale(1.15)}
-  65%{transform:translate(64vw,30vh) rotate(-10deg) scale(1.05)}
-  85%{transform:translate(88vw,14vh) rotate(12deg) scale(.85);opacity:1}
-  100%{transform:translate(112vw,2vh) rotate(8deg) scale(.7);opacity:0}}
-#fx .fly .bf .wing-r,#fx .fly .bf .wing-l{animation-duration:1.15s}
-#fx .spark{position:absolute;width:6px;height:6px;border-radius:50%;background:#7fd0ff;box-shadow:0 0 10px #4fbdf2;opacity:0;animation:spark 1.8s ease-out both}
-@keyframes spark{0%{opacity:0;transform:scale(.4)}30%{opacity:.9}100%{opacity:0;transform:translate(-30px,26px) scale(1.4)}}
 
 /* photos / avatars */
 .avt{--s:44px;width:var(--s);height:var(--s);border-radius:50%;flex:none;position:relative;overflow:hidden;display:inline-block;vertical-align:middle;
@@ -141,7 +112,7 @@ button.tile{all:unset;box-sizing:border-box;cursor:pointer}
   .lb-row .lb-bar{display:none}
 }
 @media (max-width:560px){.avt.big{--s:96px;border-radius:22px}.dt dl{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){#fx{display:none}.fly-bg{display:none}}
+@media (prefers-reduced-motion:reduce){#fx{display:none}}
 
 /* names with photos */
 .nmw{display:inline-flex;align-items:center;gap:9px;min-width:0;vertical-align:middle}
@@ -177,3 +148,42 @@ tr.dt td>dl{position:sticky;left:12px;width:min(920px,calc(100vw - 340px))}
 @media (max-width:900px){tr.dt td>dl{width:calc(100vw - 80px)}}
 .tbl-wrap.wrapcells td{max-width:460px}
 .brow{grid-template-columns:minmax(80px,170px) minmax(0,1fr) minmax(62px,auto)}@media (max-width:560px){.brow{grid-template-columns:100px minmax(0,1fr) minmax(54px,auto)}}
+
+/* ===== eagle chasing a snake ===== */
+#fx{position:fixed;inset:0;z-index:150;pointer-events:none;overflow:hidden;visibility:hidden}
+#fx.on{visibility:visible}
+#fx .veil{position:absolute;inset:0;background:linear-gradient(110deg,rgba(7,22,47,.15) 0%,rgba(18,48,102,.62) 45%,rgba(79,189,242,.28) 100%);opacity:0;animation:veil 3s ease-in-out both}
+@keyframes veil{0%{opacity:0}26%{opacity:1}58%{opacity:1}100%{opacity:0}}
+.chase{position:absolute;inset:0}
+.chase .eagle,.chase .snake{position:absolute;left:0;will-change:transform}
+.chase .eagle{top:6vh;width:clamp(260px,34vw,520px);filter:drop-shadow(0 16px 22px rgba(0,0,0,.45));animation:eagleRun 3.1s cubic-bezier(.4,.05,.45,.95) both}
+.chase .snake{top:64vh;width:clamp(190px,22vw,340px);filter:drop-shadow(0 8px 12px rgba(0,0,0,.4));animation:snakeRun 3.1s cubic-bezier(.3,.1,.5,1) both}
+.chase svg{display:block;width:100%;height:auto;overflow:visible}
+@keyframes eagleRun{
+  0%{transform:translate(-48vw,-4vh) rotate(4deg)}
+  35%{transform:translate(18vw,2vh) rotate(-3deg)}
+  62%{transform:translate(60vw,26vh) rotate(14deg)}
+  80%{transform:translate(92vw,40vh) rotate(8deg)}
+  100%{transform:translate(135vw,34vh) rotate(-4deg)}}
+@keyframes snakeRun{
+  0%{transform:translate(-28vw,0)}
+  100%{transform:translate(130vw,-1vh)}}
+.eagle-svg .wing{transform-box:view-box;transform-origin:104px 62px;animation:wingflap .62s ease-in-out infinite alternate}
+.eagle-svg .wing-far{animation-delay:-.08s;opacity:.92}
+@keyframes wingflap{from{transform:rotate(14deg)}to{transform:rotate(-30deg)}}
+.snake-svg .sg{animation:slither .8s ease-in-out infinite alternate}
+@keyframes slither{from{transform:translateY(-8px)}to{transform:translateY(8px)}}
+.snake-svg .tongue{animation:tongue .35s steps(2) infinite alternate;transform-box:fill-box;transform-origin:left center}
+@keyframes tongue{from{transform:scaleX(.4)}to{transform:scaleX(1)}}
+/* login: slow endless chase in the background */
+.login .chase-bg{position:absolute;inset:0;opacity:.55;z-index:1}
+.login .chase-bg .eagle{top:10vh;width:clamp(200px,26vw,380px);animation:eagleLoop 16s linear infinite}
+.login .chase-bg .snake{top:72vh;width:clamp(150px,18vw,260px);animation:snakeLoop 16s linear infinite}
+@keyframes eagleLoop{0%{transform:translate(-40vw,0)}50%{transform:translate(55vw,24vh) rotate(8deg)}100%{transform:translate(125vw,10vh)}}
+@keyframes snakeLoop{0%{transform:translate(-14vw,0)}100%{transform:translate(135vw,0)}}
+@media (prefers-reduced-motion:reduce){#fx{display:none}.login .chase-bg{display:none}}
+.btn[hidden]{display:none!important}
+input.mob{width:150px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card,var(--bg));color:inherit;font:inherit}
+.grid.g-2 .drop{margin:6px 0}
+#nav button{white-space:normal;text-align:left}
+.drop{display:block}

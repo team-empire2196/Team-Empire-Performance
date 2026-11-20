@@ -1,7 +1,7 @@
 /* Team Empire Performance Hub – static site (GitHub Pages). All logic runs in the browser. */
 (() => {
 'use strict';
-const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000' };
+const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000', agentPass: '1234' };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -51,6 +51,7 @@ const SECTIONS = [
   { id: 'audit', name: 'Audit Details', ic: 'i-audit' }, { id: 'emp', name: 'Parameter Empathy', ic: 'i-heart' },
   { id: 'fcr', name: 'FCR, Quiz & SD', ic: 'i-target' }, { id: 'dkb', name: 'Complaint & DKB', ic: 'i-flag' },
   { id: 'lag', name: 'Lag & Adherence', ic: 'i-clock' }, { id: 'aht', name: 'AHT & CFS', ic: 'i-phone' },
+  { id: 'punch', name: 'Shift & Punch', ic: 'i-cal' }, { id: 'team', name: 'My all Colleague Details', ic: 'i-user' },
 ];
 const SUBS = ['ce', 'nce', 'emp', 'rtc', 'att', 'dkb', 'dkbabs', 'sd'];
 const A = () => (S.data ? S.data.agents : []);
@@ -81,26 +82,24 @@ const monName = (ym) => { if (!ym) return ''; const [y, m] = ym.split('-'); retu
 const fMin = (m) => { m = Math.round(m); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + ' min'; };
 const download = (name, text, type = 'text/csv;charset=utf-8') => { const b = new Blob([text], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
 
-/* ---------- butterfly ---------- */
-const BF = () => `<svg class="bf" viewBox="0 0 100 100" aria-hidden="true">
-  <g><g class="wing-r"><path d="M50 49C56 22 86 6 94 22C99 37 78 51 50 53Z" fill="url(#bfg)" stroke="#0f3b86" stroke-width="1.4"/><path d="M50 53C72 54 92 62 86 79C80 94 58 84 50 62Z" fill="url(#bfg2)" stroke="#0f3b86" stroke-width="1.4"/><circle cx="80" cy="27" r="3.2" fill="#fff" opacity=".8"/><circle cx="70" cy="38" r="2" fill="#fff" opacity=".7"/><circle cx="74" cy="73" r="2.6" fill="#fff" opacity=".75"/></g></g>
-  <g transform="translate(100,0) scale(-1,1)"><g class="wing-l"><path d="M50 49C56 22 86 6 94 22C99 37 78 51 50 53Z" fill="url(#bfg)" stroke="#0f3b86" stroke-width="1.4"/><path d="M50 53C72 54 92 62 86 79C80 94 58 84 50 62Z" fill="url(#bfg2)" stroke="#0f3b86" stroke-width="1.4"/><circle cx="80" cy="27" r="3.2" fill="#fff" opacity=".8"/><circle cx="70" cy="38" r="2" fill="#fff" opacity=".7"/><circle cx="74" cy="73" r="2.6" fill="#fff" opacity=".75"/></g></g>
-  <ellipse cx="50" cy="55" rx="2.8" ry="17" fill="#0c2146"/><circle cx="50" cy="37" r="3.4" fill="#0c2146"/>
-  <path d="M49 35C46 27 41 22 36 20M51 35C54 27 59 22 64 20" stroke="#0c2146" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
-let fxTimer = 0;
-function playButterfly(then) {
-  const fx = $('#fx');
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce || !fx) { then(); return; }
-  clearTimeout(fxTimer);
-  const y0 = 8 + Math.random() * 20;
-  fx.className = ''; fx.innerHTML = '';
-  void fx.offsetWidth;
-  fx.innerHTML = `<div class="veil"></div><div class="fly" style="top:${y0}vh">${BF()}</div>` + Array.from({ length: 9 }, (_, i) => `<i class="spark" style="left:${8 + i * 10}vw;top:${30 + (i % 4) * 14}vh;animation-delay:${i * 190}ms"></i>`).join('');
-  fx.className = 'on';
-  setTimeout(then, 620);              // swap the page while the veil is at full strength
-  fxTimer = setTimeout(() => { fx.className = ''; fx.innerHTML = ''; }, 2600);
-}
+/* ---------- eagle chasing a snake (page-change transition + login theme) ---------- */
+const EAGLE = () => `<svg class="eagle-svg" viewBox="0 0 220 130" aria-hidden="true">
+  <g class="wing wing-far"><path d="M100 58C78 22 46 8 12 14C40 26 58 42 76 70Z" fill="#4a2c16"/><path d="M30 20C48 30 62 44 76 68M52 14C64 28 72 44 82 66" stroke="#2e1a0b" stroke-width="1.6" fill="none" opacity=".6"/></g>
+  <path d="M58 68L6 80L12 94L62 82Z" fill="#f3efe6" stroke="#cfc8b8" stroke-width="1"/>
+  <path d="M26 79L30 91M40 75L44 87" stroke="#cfc8b8" stroke-width="1.4"/>
+  <ellipse cx="108" cy="72" rx="50" ry="18" fill="#6b4220" transform="rotate(-6 108 72)"/>
+  <path d="M70 80C90 94 128 92 150 76C130 86 96 88 70 80Z" fill="#8a5a30" opacity=".8"/>
+  <path d="M130 86L146 100L141 104L124 92Z" fill="#e9b53c"/><path d="M142 99l8 7M137 103l7 6" stroke="#c98f1c" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M118 88L134 104L129 108L112 94Z" fill="#e9b53c"/>
+  <circle cx="156" cy="58" r="15" fill="#faf8f2"/>
+  <path d="M168 54C186 55 190 66 180 70C175 66 171 65 166 64Z" fill="#eab63e" stroke="#c48b12" stroke-width="1"/>
+  <circle cx="161" cy="53" r="3" fill="#1d1208"/><circle cx="162" cy="52" r="1" fill="#fff"/>
+  <path d="M153 47L170 51" stroke="#cfc8b8" stroke-width="2.2" stroke-linecap="round"/>
+  <g class="wing wing-near"><path d="M104 62C84 14 48 -6 6 4C38 20 58 42 78 76Z" fill="#7b4c26"/><path d="M26 10C46 22 62 42 78 72M50 2C64 18 74 40 84 70M76 -2C84 16 90 38 96 62" stroke="#4b2c14" stroke-width="1.8" fill="none" opacity=".65"/></g>
+</svg>`;
+const SNAKE = () => { const n = 20; let seg = ''; for (let i = n - 1; i >= 0; i--) { const x = 196 - i * 9.2, y = 38 + Math.sin(i * .62) * 8, r = i === 0 ? 8.5 : 7.6 - i * .27; seg += `<circle class="sg" style="animation-delay:${(-i * 0.085).toFixed(2)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(1.8, r).toFixed(1)}" fill="${i % 3 === 0 ? '#1e7a35' : i % 3 === 1 ? '#2fa24b' : '#c9b13a'}"/>`; }
+  return `<svg class="snake-svg" viewBox="0 0 220 76" aria-hidden="true"><g>${seg}<g class="sg" style="animation-delay:0s"><circle cx="196" cy="38" r="9" fill="#1e7a35"/><circle cx="199" cy="35" r="2.6" fill="#ffe14d"/><circle cx="200" cy="35" r="1.1" fill="#111"/><path class="tongue" d="M204 40L214 40M214 40L219 36M214 40L219 44" stroke="#e0293a" stroke-width="1.6" fill="none" stroke-linecap="round"/></g></g></svg>`; };
+const CHASE = () => `<div class="snake">${SNAKE()}</div><div class="eagle">${EAGLE()}</div>`;
 /* ---------- team stats ---------- */
 function csatTeam(list) { const c = sum(list.map((a) => a.csatCnt)), d = sum(list.map((a) => a.dsatCnt)); return c + d > 0 ? c / (c + d) : null; }
 function fcrTeam(list) { const c = sum(list.map((a) => a.fcrCalls)), f = sum(list.map((a) => a.fcrCount)); return c > 0 ? f / c : avg(list.map((a) => a.fcr)); }
@@ -544,8 +543,63 @@ function secAht() {
     <div class="card reveal" style="--i:3"><h3>Day-wise CFS score</h3><div class="sub">Percent satisfied. Green at 93% or more, amber within 2 points, red below.</div>${cfsH}</div>`;
 }
 
+/* ---------- Shift & Punch ---------- */
+const dayKey = (n) => (isN(n) ? Math.floor(n) : null);
+function punchRows(a, only) {
+  const att = new Map((a.attRows || []).map((r) => [dayKey(r.d), r])), pu = new Map((a.punch || []).map((r) => [dayKey(r.d), r]));
+  const days = only != null ? [only] : [...new Set([...att.keys(), ...pu.keys()])].filter((x) => x != null).sort((x, y) => y - x);
+  return days.map((d) => ({ id: a.id, name: a.name, a, d, at: att.get(d) || null, pu: pu.get(d) || null })).filter((r) => r.at || r.pu);
+}
+const tCell = (v) => (isN(v) ? fT(v).slice(0, 5) : '<span class="t-mute">—</span>');
+function gapPill(r) {
+  const sh = shiftMin((r.at && r.at.sh) || (r.pu && r.pu.sh)); const li = r.pu && r.pu.fi != null ? r.pu.fi : (r.at ? r.at.li : null);
+  if (!sh || li == null) return '<span class="t-mute">—</span>';
+  const m = (li - (r.d + sh.s / 1440)) * 1440;
+  return m > 1 ? pill('bad', 'Late ' + fMin(m)) : m < -1 ? pill('good', 'Early ' + fMin(-m)) : pill('good', 'On time');
+}
+function secPunch() {
+  const L = scope(), single = !!cur();
+  const allDays = [...new Set(L.flatMap((a) => punchRows(a).map((r) => r.d)))].sort((x, y) => y - x);
+  const info = S.data.punchInfo;
+  let day = S.punchDay != null && allDays.includes(S.punchDay) ? S.punchDay : (allDays.find((d) => L.some((x) => punchRows(x, d).some((r) => (r.pu && r.pu.fi != null) || (r.at && r.at.li != null)))) ?? allDays[0] ?? null);
+  const base = single ? L.flatMap((a) => punchRows(a)) : (day == null ? [] : L.flatMap((a) => punchRows(a, day)));
+  const rows = base.map((r) => Object.assign(r, { sh: (r.at && r.at.sh) || (r.pu && r.pu.sh) || '' }));
+  const cols = [nameCol()];
+  if (single) cols.push(col('Date', (r) => fD(r.d) + ' <span class="t-mute">' + fWd(r.d) + '</span>', { s: (r) => r.d, x: (r) => isoS(r.d) }));
+  cols.push(col('Shift', (r) => esc(r.sh) || '—', { s: (r) => r.sh, x: (r) => r.sh }),
+    col('System login', (r) => tCell(r.at && r.at.li), { r: 1, s: (r) => (r.at ? r.at.li : null), x: (r) => (r.at && isN(r.at.li) ? fT(r.at.li) : '') }),
+    col('System logout', (r) => tCell(r.at && r.at.lo), { r: 1, s: (r) => (r.at ? r.at.lo : null), x: (r) => (r.at && isN(r.at.lo) ? fT(r.at.lo) : '') }),
+    col('Punch in', (r) => tCell(r.pu && r.pu.fi), { r: 1, s: (r) => (r.pu ? r.pu.fi : null), x: (r) => (r.pu && isN(r.pu.fi) ? fT(r.pu.fi) : '') }),
+    col('Punch out', (r) => tCell(r.pu && r.pu.la), { r: 1, s: (r) => (r.pu ? r.pu.la : null), x: (r) => (r.pu && isN(r.pu.la) ? fT(r.pu.la) : '') }),
+    col('Punch vs shift', gapPill, { s: (r) => { const t = shiftMin(r.sh), li = r.pu && r.pu.fi != null ? r.pu.fi : null; return t && li != null ? (li - (r.d + t.s / 1440)) * 1440 : null; } }),
+    col('Status', (r) => (r.at ? (r.at.st >= 1 ? pill('good', 'Present') : r.at.st > 0 ? pill('warn', 'Half') : pill('bad', 'Absent')) : (r.pu && r.pu.st ? esc(r.pu.st) : '—')), { s: (r) => (r.at ? r.at.st : null) }));
+  const pick = single ? '' : `<div class="field" style="max-width:220px"><label for="punchDay">Date</label><select id="punchDay">${allDays.map((d) => `<option value="${d}" ${d === day ? 'selected' : ''}>${fD(d)} · ${fWd(d)}</option>`).join('')}</select></div>`;
+  const attMax = Math.max(0, ...L.flatMap((x) => (x.attRows || []).filter((r) => r.li != null).map((r) => r.d)));
+  const attNote = attMax ? ` · System login/logout available up to ${fD(attMax)}` : '';
+  const miss = !info ? `<div class="msg warn">No punch file has been uploaded yet. System login and logout come from the attendance sheet; punch in and out appear once the admin uploads the Punch file in Update Data.</div>` : '';
+  return head('Shift & Punch', 'Shift time, system login and logout (attendance sheet) against punch in and punch out (punch file).') + miss +
+    `<div class="card reveal" style="--i:1"><h3>${single ? esc(L[0].name) + ' · day by day' : 'Team on ' + (day != null ? fD(day) : '—')}</h3><div class="sub">${info ? `Punch data: ${fD(info.from)} to ${fD(info.to)} · ${info.agents} agents` : 'Punch data not loaded'}${attNote}</div>${pick}${table('punch' + (single ? '1' : ''), cols, rows, { sort: single ? 1 : 0, dir: single ? 'desc' : 'asc' })}</div>`;
+}
+
+/* ---------- My all Colleague Details ---------- */
+function secTeam() {
+  const rows = A().slice().sort((a, b) => a.name.localeCompare(b.name)); S.mobEdit = S.mobEdit || {};
+  const mob = (a) => { const v = S.mobEdit[a.id] != null ? S.mobEdit[a.id] : (a.mobile || '');
+    if (S.isAdmin) return `<input class="mob" data-mob="${esc(a.id)}" type="tel" inputmode="tel" placeholder="01XXXXXXXXX" value="${esc(v)}" aria-label="Mobile of ${esc(a.name)}">`;
+    return v ? `<a href="tel:${esc(String(v).replace(/[^\d+]/g, ''))}">${esc(v)}</a>` : '<span class="t-mute">Not added</span>'; };
+  const have = rows.filter((a) => a.mobile).length;
+  const cols = [nameCol('Name'), col('Genex ID', (a) => esc(a.vdi || '—'), { s: (a) => a.vdi || '', x: (a) => a.vdi || '' }),
+    col('EID', (a) => esc(a.id), { s: (a) => a.id, x: (a) => a.id }),
+    col('Mobile', mob, { s: (a) => a.mobile || '', x: (a) => a.mobile || '' }),
+    col('Team leader', (a) => esc(a.tl || '—'), { s: (a) => a.tl || '', x: (a) => a.tl || '' }),
+    col('Site / LOB', (a) => esc([a.site, a.lob].filter(Boolean).join(' · ') || '—'), { s: (a) => a.site || '', x: (a) => [a.site, a.lob].filter(Boolean).join(' · ') })];
+  const adm = S.isAdmin ? `<div class="msg" style="margin:0 0 10px">Admin: type the mobile numbers below, then press <b>Save and publish numbers</b>. Numbers are kept when you upload new Excel files. <button class="btn primary sm" id="mobSave">Save and publish numbers</button></div>` : '';
+  return head('My all Colleague Details', 'Every agent in the KPI sheet with Genex ID and mobile number.') +
+    `<div class="card reveal" style="--i:1"><h3>${rows.length} colleagues</h3><div class="sub">${have} with a mobile number</div>${adm}${table('team', cols, rows, { sort: 0, dir: 'asc' })}</div>`;
+}
+
 /* ---------- render + router ---------- */
-const VIEWS = { dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht };
+const VIEWS = { dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht, punch: secPunch, team: secTeam };
 function render(keepScroll) {
   const root = $('#content'), sc = window.scrollY;
   const sn = (SECTIONS.find((s) => s.id === S.sec) || {}).name || '';
@@ -576,7 +630,7 @@ function applyHash() {
   return { sec: nsec, agent: nag, sub: nsub };
 }
 let routed = false;
-function go(patch) {            /* change page with the butterfly slow-motion transition */
+function go(patch) {            /* change page (no transition animation any more; the eagle and snake live on the login page only) */
   const r = Object.assign({ sec: S.sec, agent: S.agent, sub: S.sub }, patch);
   if (r.sec !== 'agent' && !('sub' in patch)) r.sub = null;
   if (r.agent === 'all') r.sub = null;
@@ -590,8 +644,7 @@ function onRoute() {
   const changed = r.sec !== S.sec || r.agent !== S.agent || r.sub !== S.sub;
   if (!changed && routed) return;
   const apply = () => { S.sec = r.sec; S.agent = r.agent; S.sub = r.sub; S.month = null; S.dq = {}; $('#agentSel').value = S.agent; render(); };
-  if (!routed) { routed = true; apply(); return; }
-  playButterfly(apply);
+  routed = true; apply();
 }
 function buildChrome() {
   $('#nav').innerHTML = SECTIONS.map((s) => `<button data-sec="${s.id}"><svg><use href="#${s.ic}"/></svg>${s.name}</button>`).join('');
@@ -610,25 +663,35 @@ async function fetchVault() {
   const r = await fetch(CONFIG.dataUrl + '?t=' + Date.now(), { cache: 'no-store' });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error('Could not load the data file (HTTP ' + r.status + ').');
-  return r.json();
+  const txt = await r.text(); S.sig = hashStr(txt); return JSON.parse(txt);
 }
 async function loadPhotos() { try { const r = await fetch(CONFIG.photoMap + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) S.photos = await r.json(); } catch (e) { S.photos = {}; } }
+const te8 = new TextEncoder();
+const d64 = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
+const ovKey = (id) => 'te-pw:' + normId(id);
+async function pwHash(pw, saltB64) { const base = await crypto.subtle.importKey('raw', te8.encode(pw), 'PBKDF2', false, ['deriveBits']); return u8b64(new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: d64(saltB64), iterations: 100000, hash: 'SHA-256' }, base, 256))); }
+const isAdminId = (id) => normId(id) === normId(CONFIG.defaultId);
+const defaultPassFor = (id) => (isAdminId(id) ? CONFIG.defaultPass : CONFIG.agentPass);
 async function signIn(id, pw) {
   const vault = await fetchVault();
   await loadPhotos();
+  let unwrapPw = pw;
+  const ov = safe(() => JSON.parse(localStorage.getItem(ovKey(id)) || 'null'));   /* password the person set on this device */
+  if (ov && ov.salt) { if (await pwHash(pw, ov.salt) !== ov.hash) throw new Error('BAD'); unwrapPw = defaultPassFor(id); }
   if (!vault) {                                            /* first run: nothing published yet */
-    if (normId(id) !== normId(CONFIG.defaultId) || pw !== CONFIG.defaultPass) throw new Error('BAD');
-    S.data = null; S.vaultSalt = null;
+    if (!isAdminId(id) || unwrapPw !== CONFIG.defaultPass) throw new Error('BAD');
+    S.data = null;
   } else {
-    const key = await Core.deriveKey(id, pw, vault.salt);
-    try { S.data = await Core.vaultDecrypt(vault, key); } catch (e) { throw new Error('BAD'); }
-    S.vaultSalt = vault.salt;
+    try { S.data = await Core.vaultOpen(vault, id, unwrapPw); } catch (e) { throw new Error('BAD'); }
   }
-  S.cred = { id, pw }; S.status = 'ready';
+  S.unwrapPw = unwrapPw; S.cred = { id, pw }; S.isAdmin = isAdminId(id); S.status = 'ready';
+  S.me = S.data ? (S.data.agents.find((a) => a.vdi && normId(a.vdi) === normId(id)) || null) : null;
 }
 function showApp() {
   $('#login').hidden = true; $('#app').hidden = false;
   buildChrome(); routed = false;
+  $('#upBtn').hidden = !S.isAdmin;
+  if (S.me && !location.hash) history.replaceState(null, '', routeHash({ sec: 'agent', agent: S.me.id }));
   const h = applyHash(); S.sec = h.sec; S.agent = h.agent; S.sub = h.sub; $('#agentSel').value = S.agent;
   routed = true; render();
 }
@@ -637,7 +700,7 @@ async function doLogin(id, pw, silent) {
   try {
     await signIn(id, pw);
     safe(() => sessionStorage.setItem('te-cred', JSON.stringify({ id, pw })));
-    playButterfly(showApp);
+    showApp();
   } catch (e) {
     if (!silent) { err.textContent = e.message === 'BAD' ? 'Incorrect ID or password.' : (e.message || 'Could not sign in.'); err.hidden = false; }
     safe(() => sessionStorage.removeItem('te-cred'));
@@ -653,44 +716,69 @@ function guessRepo() {
   safe(() => { const s = JSON.parse(localStorage.getItem('te-gh') || '{}'); if (s.owner) Object.assign(GH, s); });
 }
 function openUpload() {
-  S.pending = null; guessRepo();
+  if (!S.isAdmin) return;
+  S.pending = null; S.upKpi = null; S.upPunch = null; guessRepo();
   $('#modalRoot').innerHTML = `<div class="modal" id="modal"><div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="upT"><h3 id="upT">Update team data</h3>
-  <p class="t-mute" style="margin:0">Choose the latest KPI workbook. It is read inside your browser. Then publish it so every agent sees the new numbers the next time they open the site (about a minute after publishing).</p>
-  <label class="drop" id="drop" for="file"><b>Choose Excel file</b><br><span id="fname">or drop it here (.xlsx)</span></label><input type="file" id="file" accept=".xlsx,.xlsm" hidden>
-  <div class="pw"><div class="field"><label for="pw">Excel password</label><input id="pw" type="password" autocomplete="off" placeholder="If the file is protected"></div></div>
-  <div id="upState"></div><div class="actions"><button class="btn" data-close>Cancel</button><button class="btn primary" id="readBtn" disabled>Read file</button></div></div></div>`;
+  <p class="t-mute" style="margin:0">Admin only. Choose the two files, press <b>Read files</b>, then <b>Publish</b>. Everyone who has the site open sees the update within about a minute. You can upload just one of the two; the other stays as it is.</p>
+  <div class="grid g-2" style="margin-top:8px">
+  <div><label class="drop" id="drop" for="file"><b>1. KPI Updated Team Empire</b><br><span id="fname">Excel (.xlsx) · drop here</span></label><input type="file" id="file" accept=".xlsx,.xlsm" hidden>
+  <div class="field"><label for="pw">Excel password</label><input id="pw" type="password" autocomplete="off" placeholder="If the file is protected"></div></div>
+  <div><label class="drop" id="drop2" for="file2"><b>2. Punch Data</b><br><span id="fname2">CSV or Excel · drop here</span></label><input type="file" id="file2" accept=".csv,.xlsx,.xlsm" hidden>
+  <div class="field"><label for="pw2">Punch file password</label><input id="pw2" type="password" autocomplete="off" placeholder="Only if protected"></div></div></div>
+  <div id="upState"></div><div class="actions"><button class="btn" data-close>Cancel</button><button class="btn primary" id="readBtn" disabled>Read files</button></div></div></div>`;
 }
 const closeModal = () => { $('#modalRoot').innerHTML = ''; };
 const setUpState = (html) => { const el = $('#upState'); if (el) el.innerHTML = html; };
+const publishFields = () => `<div class="field" style="margin-top:8px"><label for="ghT">GitHub token</label><input id="ghT" type="password" autocomplete="off" placeholder="Personal access token (contents: write)"></div>
+    <div class="pw"><div class="field"><label for="ghO">Owner</label><input id="ghO" type="text" value="${esc(GH.owner)}"></div><div class="field"><label for="ghR">Repo</label><input id="ghR" type="text" value="${esc(GH.repo)}"></div></div>
+    <ol class="steps"><li><b>Publish to GitHub</b> saves the data file straight into your repository. The site updates itself in about a minute.</li><li>No token? Use <b>Download data file</b>, then upload it to the repo's <code>data</code> folder on github.com (replace <code>data.enc.json</code>).</li></ol>`;
+const publishButtons = () => { $('.actions').innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn" id="dlBtn"><svg><use href="#i-dl"/></svg>Download data file</button><button class="btn primary" id="pubBtn">Publish to GitHub</button>`; };
+function openMobPublish(n) {
+  guessRepo(); S.pending = S.data;
+  $('#modalRoot').innerHTML = `<div class="modal" id="modal"><div class="sheet wide" role="dialog" aria-modal="true"><h3>Save mobile numbers</h3><p class="t-mute" style="margin:0">${n} number(s) will be saved into the shared data file.</p><div id="upState">${publishFields()}</div><div class="actions"></div></div></div>`;
+  publishButtons();
+}
 async function readSelected() {
-  const f = $('#file').files[0]; if (!f) return;
-  const pw = $('#pw').value; const btn = $('#readBtn'); btn.disabled = true;
-  setUpState(`<div class="prog"><i id="pbar"></i></div><div class="t-mute" id="plab">Opening ${esc(f.name)}…</div>`);
+  const f = $('#file').files[0], f2 = $('#file2').files[0]; if (!f && !f2) return;
+  const btn = $('#readBtn'); btn.disabled = true;
+  setUpState(`<div class="prog"><i id="pbar"></i></div><div class="t-mute" id="plab">Reading…</div>`);
   const prog = (p) => { const b = $('#pbar'); if (b) b.style.width = Math.round(p * 100) + '%'; const l = $('#plab'); if (l) l.textContent = p < .5 ? 'Unlocking the workbook…' : 'Decrypting…'; };
   try {
     if (!window.JSZip) throw new Error('The Excel reader did not load. Reload the page and try again.');
-    const buf = new Uint8Array(await f.arrayBuffer());
-    const data = await Core.processFile(buf, pw, window.JSZip, prog, f.name);
-    const at = new Date().toISOString(); data.at = at;
-    const prev = (S.data && S.data.hist) || [];
-    data.hist = prev.concat([{ t: at, month: data.month, n: data.agents.length, avg: avg(data.agents.map((a) => a.final)) }]).slice(-30);
+    const old = S.data; let data, sumKpi = '', sumPunch = '';
+    if (f) {
+      data = await Core.processFile(new Uint8Array(await f.arrayBuffer()), $('#pw').value, window.JSZip, prog, f.name);
+      const at = new Date().toISOString(); data.at = at;
+      const prev = (old && old.hist) || [];
+      data.hist = prev.concat([{ t: at, month: data.month, n: data.agents.length, avg: avg(data.agents.map((a) => a.final)) }]).slice(-30);
+      const oldBy = new Map(((old && old.agents) || []).map((a) => [a.id, a]));
+      data.agents.forEach((a) => { const o = oldBy.get(a.id); if (!o) return; if (!a.mobile && o.mobile) a.mobile = o.mobile; a.punch = o.punch || []; });
+      if (old && old.punchInfo) data.punchInfo = old.punchInfo;
+      const qa = sum(data.agents.map((a) => a.qa.length)), sdn = sum(data.agents.map((a) => a.sdRows.length));
+      sumKpi = `<h4 style="margin:10px 0 4px">KPI file</h4><dl class="kv"><dt>Team</dt><dd>${esc(CONFIG.team)} · TL ${esc(data.tl)}</dd><dt>Month</dt><dd>${esc(data.month)} (${data.days.length} days)</dd><dt>Agents (KPI sheet)</dt><dd>${data.agents.length}</dd><dt>Average final score</dt><dd>${fNum(avg(data.agents.map((a) => a.final)), 2)}</dd><dt>Audited calls</dt><dd>${qa}</dd><dt>SD complaints</dt><dd>${sdn}</dd></dl>${(data.warnings || []).length ? `<div class="msg warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}`;
+    } else {
+      if (!old) throw new Error('Upload the KPI Excel file first. The punch file is matched to the agents in the KPI sheet.');
+      data = JSON.parse(JSON.stringify(old)); data.at = new Date().toISOString();
+    }
+    if (f2) {
+      const pr = await Core.readPunchFile(new Uint8Array(await f2.arrayBuffer()), f2.name, $('#pw2').value, window.JSZip);
+      const pi = Core.applyPunch(data, pr);
+      sumPunch = `<h4 style="margin:10px 0 4px">Punch file</h4><dl class="kv"><dt>Rows read</dt><dd>${pr.rows.length}</dd><dt>Rows for KPI agents</dt><dd>${pi.rows}</dd><dt>Agents with punches</dt><dd>${pi.agents} of ${data.agents.length}</dd><dt>Dates</dt><dd>${fD(pi.from)} to ${fD(pi.to)}</dd></dl>`;
+    }
     S.pending = data;
-    const qa = sum(data.agents.map((a) => a.qa.length)), sdn = sum(data.agents.map((a) => a.sdRows.length));
-    setUpState(`<div class="msg good">File read successfully.</div><dl class="kv"><dt>Team</dt><dd>${esc(CONFIG.team)} · TL ${esc(data.tl)}</dd><dt>Month</dt><dd>${esc(data.month)} (${data.days.length} days)</dd><dt>Agents (KPI sheet)</dt><dd>${data.agents.length}</dd><dt>Average final score</dt><dd>${fNum(avg(data.agents.map((a) => a.final)), 2)}</dd><dt>Audited calls (raw)</dt><dd>${qa}</dd><dt>SD complaints (raw)</dt><dd>${sdn}</dd></dl>${(data.warnings || []).length ? `<div class="msg warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}
-    <div class="field" style="margin-top:8px"><label for="ghT">GitHub token</label><input id="ghT" type="password" autocomplete="off" placeholder="Personal access token (contents: write)"></div>
-    <div class="pw"><div class="field"><label for="ghO">Owner</label><input id="ghO" type="text" value="${esc(GH.owner)}"></div><div class="field"><label for="ghR">Repo</label><input id="ghR" type="text" value="${esc(GH.repo)}"></div></div>
-    <ol class="steps"><li><b>Publish to GitHub</b> saves the data file straight into your repository. The site updates itself in about a minute.</li><li>No token? Use <b>Download data file</b>, then upload it to the repo's <code>data</code> folder on github.com (replace <code>data.enc.json</code>).</li></ol>`);
-    $('.actions').innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn" id="dlBtn"><svg><use href="#i-dl"/></svg>Download data file</button><button class="btn primary" id="pubBtn">Publish to GitHub</button>`;
+    setUpState(`<div class="msg good">${f && f2 ? 'Both files read successfully.' : 'File read successfully.'}</div>${sumKpi}${sumPunch}${publishFields()}`);
+    publishButtons();
   } catch (e) {
     const m = String(e && e.message || e);
-    setUpState(`<div class="msg bad">${m === 'WRONG_PASSWORD' ? 'That password is not correct. Check it and try again.' : m === 'NEED_PASSWORD' ? 'This workbook is password protected. Enter the password and read it again.' : esc(m)}</div>`);
+    setUpState(`<div class="msg bad">${m === 'WRONG_PASSWORD' ? 'That password is not correct. Check it and try again.' : m === 'NEED_PASSWORD' ? 'A file is password protected. Enter its password and read again.' : esc(m)}</div>`);
     btn.disabled = false;
   }
 }
 async function buildVaultFile() {
   const d = S.pending; if (!d) throw new Error('Read a file first.');
-  const salt = Core.newSalt(); const key = await Core.deriveKey(S.cred.id, S.cred.pw, salt);
-  return Core.vaultEncrypt(d, key, salt);
+  /* one login for the admin plus one per KPI-sheet agent (ID = Genex ID, default password 1234) */
+  const users = [{ id: CONFIG.defaultId, pass: CONFIG.defaultPass }].concat(d.agents.filter((a) => a.vdi).map((a) => ({ id: a.vdi, pass: CONFIG.agentPass })));
+  return Core.vaultSeal(d, users);
 }
 async function ghApi(path, opt, token) {
   const r = await fetch('https://api.github.com' + path, Object.assign({ headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + token, 'X-GitHub-Api-Version': '2022-11-28' } }, opt));
@@ -715,12 +803,36 @@ async function publish() {
     await ghPut('data/data.enc.json', u8b64(bytes), 'Update team data (' + (S.pending.month || '') + ')', token);
     safe(() => localStorage.setItem('te-gh', JSON.stringify({ owner: GH.owner, repo: GH.repo, branch: GH.branch })));
     S.data = S.pending; fillAgents(); closeModal(); render(true);
-    toast('Published. Everyone sees the update in about a minute.');
+    toast('Published. Open dashboards refresh by themselves within about two minutes.');
   } catch (e) { const m = $('#pubMsg'); if (m) m.outerHTML = `<div class="msg bad">${esc(e.message)}</div>`; btn.disabled = false; }
 }
 async function downloadVault() {
   try { const v = await buildVaultFile(); download('data.enc.json', JSON.stringify(v), 'application/json'); S.data = S.pending; fillAgents(); render(true); toast('Downloaded. Upload it to the repo\'s data folder to publish.'); }
   catch (e) { toast(e.message, true); }
+}
+
+/* ---------- change password (saved on this device) ---------- */
+function openPw() {
+  $('#modalRoot').innerHTML = `<div class="modal" id="modal"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pwT"><h3 id="pwT">Change password</h3>
+  <p class="t-mute" style="margin:0">Signed in as <b>${esc(S.cred.id)}</b>. The new password is saved in this browser, so use the same browser next time.</p>
+  <div class="field"><label for="pw0">Current password</label><input id="pw0" type="password" autocomplete="current-password"></div>
+  <div class="field"><label for="pw1">New password (4+ characters)</label><input id="pw1" type="password" autocomplete="new-password"></div>
+  <div class="field"><label for="pw2">Repeat new password</label><input id="pw2" type="password" autocomplete="new-password"></div>
+  <div id="pwMsg"></div><div class="actions"><button class="btn" data-close>Cancel</button><button class="btn primary" id="pwSave">Save password</button></div></div></div>`;
+}
+async function savePw() {
+  const c = $('#pw0').value, n = $('#pw1').value, r = $('#pw2').value, m = $('#pwMsg');
+  const bad = (t) => { m.innerHTML = `<div class="msg bad">${esc(t)}</div>`; };
+  if (c !== S.cred.pw) return bad('Current password is not correct.');
+  if (n.length < 4) return bad('New password must be at least 4 characters.');
+  if (n !== r) return bad('The two new passwords do not match.');
+  if (n === c) return bad('Choose a password different from the current one.');
+  try {
+    const salt = Core.newSalt();
+    localStorage.setItem(ovKey(S.cred.id), JSON.stringify({ salt, hash: await pwHash(n, salt) }));
+  } catch (e) { return bad('This browser blocked saving the password (private window?).'); }
+  S.cred.pw = n; safe(() => sessionStorage.setItem('te-cred', JSON.stringify({ id: S.cred.id, pw: n })));
+  closeModal(); toast('Password changed on this device.');
 }
 
 /* ---------- events ---------- */
@@ -744,10 +856,13 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-dqreset]')) { const k = (S.qctx || {}).kind; if (k) { S.dq[k] = { q: '', from: '', to: '', val: '' }; render(true); } return; }
   if (e.target.closest('[data-open-up]') || e.target.closest('#upBtn')) { openUpload(); return; }
   if (e.target.closest('[data-close]') || e.target.id === 'modal') { closeModal(); return; }
+  if (e.target.closest('#mobSave')) { const ed = S.mobEdit || {}; let n = 0; A().forEach((a) => { if (ed[a.id] != null) { a.mobile = ed[a.id].trim(); } if (a.mobile) n++; }); openMobPublish(n); return; }
   if (e.target.closest('#readBtn')) { readSelected(); return; }
   if (e.target.closest('#pubBtn')) { publish(); return; }
   if (e.target.closest('#dlBtn')) { downloadVault(); return; }
   if (e.target.closest('#outBtn')) { signOut(); return; }
+  if (e.target.closest('#pwBtn')) { openPw(); return; }
+  if (e.target.closest('#pwSave')) { savePw(); return; }
   if (e.target.closest('#menuBtn')) { $('#side').classList.toggle('open'); return; }
   if (e.target.closest('#themeBtn')) { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; safe(() => localStorage.setItem('te-theme', r.dataset.theme)); return; }
   if (!e.target.closest('#side') && !e.target.closest('#menuBtn')) $('#side').classList.remove('open');
@@ -755,6 +870,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modal')) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('click') && e.target.dataset.sub) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('input', (e) => {
   const q = e.target.dataset && e.target.dataset.q; if (q) { S.tstate[q].q = e.target.value; $('#tw-' + q).innerHTML = tableBody(q); return; }
+  if (e.target.dataset && e.target.dataset.mob) { (S.mobEdit = S.mobEdit || {})[e.target.dataset.mob] = e.target.value; return; }
   const dq = e.target.dataset && e.target.dataset.dq; if (dq && S.qctx) { const k = S.qctx.kind; (S.dq[k] = S.dq[k] || {})[dq] = e.target.value; refreshDq(); }
 });
 document.addEventListener('change', (e) => {
@@ -763,18 +879,38 @@ document.addEventListener('change', (e) => {
   if (t.id === 'monthSel') { S.month = t.value; render(true); return; }
   if (t.id === 'attOnly') { S.att.only = t.checked; render(true); return; }
   if (t.dataset && t.dataset.dq === 'val') { (S.dq.sd = S.dq.sd || {}).val = t.value; refreshDq(); return; }
-  if (t.id === 'file') { const f = t.files[0]; if (f) { $('#fname').textContent = f.name; $('#readBtn').disabled = false; setUpState(''); } }
+  if (t.id === 'punchDay') { S.punchDay = +t.value; render(true); return; }
+  if (t.id === 'file' || t.id === 'file2') { const f = t.files[0]; if (f) { $(t.id === 'file' ? '#fname' : '#fname2').textContent = f.name; $('#readBtn').disabled = false; setUpState(''); } }
 });
-document.addEventListener('dragover', (e) => { if (e.target.closest && e.target.closest('#drop')) { e.preventDefault(); $('#drop').classList.add('on'); } });
-document.addEventListener('dragleave', () => { const d = $('#drop'); if (d) d.classList.remove('on'); });
-document.addEventListener('drop', (e) => { if (e.target.closest && e.target.closest('#drop')) { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) { const inp = $('#file'); const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); } $('#drop').classList.remove('on'); } });
+const dz = (e) => (e.target.closest ? e.target.closest('#drop,#drop2') : null);
+document.addEventListener('dragover', (e) => { const z = dz(e); if (z) { e.preventDefault(); z.classList.add('on'); } });
+document.addEventListener('dragleave', () => { $$('#drop,#drop2').forEach((d) => d.classList.remove('on')); });
+document.addEventListener('drop', (e) => { const z = dz(e); if (!z) return; e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) { const inp = $(z.id === 'drop' ? '#file' : '#file2'); const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); } z.classList.remove('on'); });
 const tip = $('#tip');
 document.addEventListener('mousemove', (e) => { const h = e.target.closest && e.target.closest('[data-tip]'); if (h) { tip.innerHTML = h.dataset.tip; tip.style.opacity = 1; const w = tip.offsetWidth; tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 14) + 'px'; tip.style.top = e.clientY + 14 + 'px'; } else tip.style.opacity = 0; });
 window.addEventListener('hashchange', onRoute);
 
+/* ---------- live refresh: re-check the published data file about once a minute ---------- */
+const hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i += 7) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return s.length + ':' + (h >>> 0); };
+async function liveCheck() {
+  if (!S.cred || S.status !== 'ready' || $('#modal') || document.hidden) return;
+  try {
+    const r = await fetch(CONFIG.dataUrl + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+    const txt = await r.text(); const sig = hashStr(txt);
+    if (S.sig && sig === S.sig) return;
+    const first = !S.sig; S.sig = sig; if (first) return;
+    const d = await Core.vaultOpen(JSON.parse(txt), S.cred.id, S.unwrapPw);
+    S.data = d; S.me = d.agents.find((a) => a.vdi && normId(a.vdi) === normId(S.cred.id)) || null;
+    fillAgents(); render(true); toast('Data updated. You are seeing the latest numbers.');
+  } catch (e) { /* keep showing what we have */ }
+}
+setInterval(liveCheck, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) liveCheck(); });
+
+
 /* ---------- boot ---------- */
 safe(() => { const t = localStorage.getItem('te-theme'); if (t) document.documentElement.dataset.theme = t; });
-$$('[data-bf]').forEach((el) => { el.innerHTML = BF(); });
+$$('[data-chase]').forEach((el) => { el.innerHTML = CHASE(); });
 $('#loginForm').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#lid').value, $('#lpw').value); });
 const saved = safe(() => JSON.parse(sessionStorage.getItem('te-cred') || 'null'));
 if (saved && saved.id) { $('#lid').value = saved.id; doLogin(saved.id, saved.pw, true); }

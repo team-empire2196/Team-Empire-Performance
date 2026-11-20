@@ -196,10 +196,12 @@ const Core = (() => {
   };
   const QNAMES = ['CE & NCE & RTC Raw', 'Quality Raw', 'CE & NCE Raw'];
   const SDNAMES = ['Service Delivery Raw', 'Service Delivery'];
-  const SHEETS = ['KPI', 'Day Wise AHT Tracker', 'Day Wise CFS Tracker', 'Quality & DKB & Quiz Report', ...QNAMES, ...SDNAMES, 'Escalation Accuracy & FCR', 'ORT', ...ALIAS.att, ...ALIAS.dkb];
+  const CNAMES = ['Colleague Details', 'Colleague Contacts', 'My All Colleague Details', 'Contacts', 'Contact List', 'Mobile Numbers', 'Phone List'];
+  const SHEETS = ['KPI', 'Day Wise AHT Tracker', 'Day Wise CFS Tracker', 'Quality & DKB & Quiz Report', ...QNAMES, ...SDNAMES, ...CNAMES, 'Escalation Accuracy & FCR', 'ORT', ...ALIAS.att, ...ALIAS.dkb];
   const pick = (S, names) => { for (const n of names) if (S[n]) return S[n]; return null; };
   const ymOf = (n) => { const d = serialDate(n); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
 
+  const fmtMobile = (v) => { let t = String(isNum(v) ? Math.round(v) : v).replace(/[^\d+]/g, ''); if (/^1[3-9]\d{8}$/.test(t)) t = '0' + t; return t; };
   function parseTeam(S, fileName) {
     const kpi = S['KPI'];
     if (!kpi) throw new Error('Sheet "KPI" was not found in this workbook.');
@@ -408,6 +410,22 @@ const Core = (() => {
       }
     } else warnings.push('Sheet "Service Delivery Raw" not found: service delivery complaint details will be empty.');
 
+    const byVdiAll = new Map(agents.filter((a) => a.vdi).map((a) => [norm(a.vdi), a]));
+    /* optional contact sheet: Genex ID / EID + mobile number */
+    agents.forEach((a) => { a.mobile = ''; });
+    const cs = pick(S, CNAMES);
+    if (cs && cs.length) {
+      let hr = 0; for (let r = 0; r < Math.min(6, cs.length); r++) if ((cs[r] || []).some((x) => /mobile|phone|mbl|contact/i.test(String(x || '')))) { hr = r; break; }
+      const H = (cs[hr] || []).map((x) => String(x || ''));
+      const mi = H.findIndex((x) => /mobile|phone|mbl|contact/i.test(x));
+      const ids = H.map((x, i) => (/gnx|genex|eid|employee|^id$/i.test(x) ? i : -1)).filter((i) => i >= 0);
+      if (mi >= 0 && ids.length) for (let r = hr + 1; r < cs.length; r++) {
+        const row = cs[r]; if (!row) continue;
+        const a = ids.map((i) => byId.get(idKey(row[i])) || byVdiAll.get(norm(row[i]))).find(Boolean); if (!a) continue;
+        const m = row[mi]; if (m != null && String(m).trim()) a.mobile = fmtMobile(m);
+      }
+    }
+
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const d0 = dayDates[0];
     return {
@@ -430,8 +448,77 @@ const Core = (() => {
     return parseTeam(sheets, fileName);
   }
 
+
+  /* ---------- punch data (separate CSV / Excel file) ---------- */
+  function csvParse(text) {
+    const rows = []; let row = [], cur = '', q = false;
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c !== '\r') cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows;
+  }
+  const toSerial = (v) => {
+    if (isNum(v)) return v;
+    const t = String(v == null ? '' : v).trim(); if (!t || t === '-') return null;
+    const m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t) || null;
+    if (m) return (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 864e5 + ((+m[4] || 0) * 3600 + (+m[5] || 0) * 60 + (+m[6] || 0)) / 86400;
+    const n = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t);
+    if (n) return (Date.UTC(+n[3], +n[2] - 1, +n[1]) - Date.UTC(1899, 11, 30)) / 864e5 + ((+n[4] || 0) * 3600 + (+n[5] || 0) * 60 + (+n[6] || 0)) / 86400;
+    return /^-?\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null;
+  };
+  async function firstSheetRows(u8, password, JSZip) {
+    let data = u8;
+    if (isOle(u8)) { if (!password) throw new Error('NEED_PASSWORD'); data = await decryptFile(u8, password); }
+    const zip = await JSZip.loadAsync(data); const wb = await zip.file('xl/workbook.xml').async('string');
+    const m = /<sheet [^>]*name="([^"]*)"/.exec(wb); if (!m) throw new Error('No sheet found in the punch workbook.');
+    const name = m[1].replace(/&amp;/g, '&');
+    const { sheets } = await readSheets(data, [name], JSZip);
+    return sheets[name] || [];
+  }
+  /* returns { rows: [{...}], file } with raw header-keyed objects */
+  async function readPunchFile(u8, fileName, password, JSZip) {
+    let table;
+    if (u8[0] === 0x50 && u8[1] === 0x4b || isOle(u8)) table = await firstSheetRows(u8, password, JSZip);
+    else table = csvParse(new TextDecoder('utf-8').decode(u8));
+    let hr = table.findIndex((r) => r && r.some((x) => norm(x) === 'gnxid' || norm(x) === 'genexid' || norm(x) === 'eid'));
+    if (hr < 0) throw new Error('This does not look like the punch file (no "Gnx ID" column found).');
+    const H = table[hr].map((x) => norm(x)); const ix = (...ns) => { for (const n of ns) { const i = H.indexOf(norm(n)); if (i >= 0) return i; } return -1; };
+    const c = { id: ix('Gnx ID', 'Genex ID', 'EID'), name: ix('Name'), date: ix('Date'), roster: ix('Final Roster', 'Roster'), fp: ix('First Punch Date & Time', 'First Punch'), lp: ix('Last Punch Date & Time', 'Last Punch'), dur: ix('Login Duration'), pc: ix('Punch Count'), st: ix('Status'), ot: ix('Ontime Arrival'), site: ix('Site'), lob: ix('LOB'), role: ix('Role'), proc: ix('Process') };
+    if (c.date < 0) throw new Error('The punch file has no Date column.');
+    const g = (r, k) => (c[k] >= 0 && r[c[k]] != null ? String(r[c[k]]).trim() : '');
+    const rows = [];
+    for (let r = hr + 1; r < table.length; r++) {
+      const row = table[r]; if (!row || !row.length) continue;
+      const d = toSerial(row[c.date]); if (d == null) continue;
+      rows.push({ id: idNorm(row[c.id]), d: Math.floor(d), sh: g(row, 'roster'), fi: toSerial(row[c.fp]), la: toSerial(row[c.lp]), dur: g(row, 'dur'), pc: +g(row, 'pc') || 0, st: g(row, 'st'), ot: g(row, 'ot'), site: g(row, 'site'), lob: g(row, 'lob'), role: g(row, 'role'), nm: g(row, 'name') });
+    }
+    return { rows, file: fileName || '' };
+  }
+  const idNorm = (v) => (isNum(v) ? String(Math.round(v)) : String(v == null ? '' : v).trim());
+  /* attach punch rows to KPI agents only (KPI sheet is the eligibility filter) */
+  function applyPunch(data, pr) {
+    const byId = new Map(data.agents.map((a) => [a.id, a])); let matched = 0, rows = 0, dmin = null, dmax = null;
+    data.agents.forEach((a) => { a.punch = []; });
+    pr.rows.forEach((r) => {
+      const a = byId.get(r.id); if (!a) return; rows++;
+      a.punch.push({ d: r.d, sh: r.sh, fi: r.fi, la: r.la, dur: r.dur, pc: r.pc, st: r.st, ot: r.ot });
+      if (r.site) a.site = r.site; if (r.lob) a.lob = r.lob; if (r.role) a.role = r.role;
+      dmin = dmin == null ? r.d : Math.min(dmin, r.d); dmax = dmax == null ? r.d : Math.max(dmax, r.d);
+    });
+    data.agents.forEach((a) => { a.punch.sort((x, y) => x.d - y.d); if (a.punch.length) matched++; });
+    data.punchInfo = { file: pr.file, at: new Date().toISOString(), rows, agents: matched, from: dmin, to: dmax };
+    return data.punchInfo;
+  }
+
   /* ---------- Vault (login-protected data file) ---------- */
-  const VAULT_ITER = 150000;
+  const VAULT_ITER = 100000;
   const normId = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const toB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
   async function deriveKey(id, pass, saltB64) {
@@ -451,8 +538,33 @@ const Core = (() => {
     return JSON.parse(new TextDecoder().decode(await pipe(pt, new DecompressionStream('gzip'))));
   }
   const newSalt = () => toB64(crypto.getRandomValues(new Uint8Array(16)));
+
+  /* v2 vault: one random data key encrypts the data; every login gets its own wrapped copy of that key. */
+  const sha256hex = async (t) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(t)))).map((x) => x.toString(16).padStart(2, '0')).join('');
+  const slotName = (id) => sha256hex('te-user:' + normId(id));
+  async function vaultSeal(obj, users) {
+    const dk = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    const raw = await pipe(te.encode(JSON.stringify(obj)), new CompressionStream('gzip'));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, dk, raw));
+    const rawKey = new Uint8Array(await crypto.subtle.exportKey('raw', dk));
+    const slots = {};
+    for (const u of users) {
+      const salt = newSalt(); const k = await deriveKey(u.id, u.pass, salt); const siv = crypto.getRandomValues(new Uint8Array(12));
+      slots[await slotName(u.id)] = { salt, iv: toB64(siv), ct: toB64(new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: siv }, k, rawKey))) };
+    }
+    return { v: 2, iv: toB64(iv), ct: toB64(ct), slots };
+  }
+  async function vaultOpen(file, id, pass) {
+    const sl = file.slots && file.slots[await slotName(id)];
+    if (!sl) throw new Error('WRONG_CREDENTIALS');
+    let rawKey;
+    try { rawKey = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(sl.iv) }, await deriveKey(id, pass, sl.salt), b64(sl.ct)); } catch (e) { throw new Error('WRONG_CREDENTIALS'); }
+    const dk = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+    return vaultDecrypt(file, dk);
+  }
   const exportKey = async (key) => toB64(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
   const importKey = (b) => crypto.subtle.importKey('raw', b64(b), 'AES-GCM', true, ['encrypt', 'decrypt']);
-  return { processFile, parseTeam, readSheets, decryptFile, isOle, SHEETS, deriveKey, vaultEncrypt, vaultDecrypt, newSalt, exportKey, importKey };
+  return { readPunchFile, applyPunch, csvParse, processFile, parseTeam, readSheets, decryptFile, isOle, SHEETS, deriveKey, vaultEncrypt, vaultDecrypt, vaultSeal, vaultOpen, normId, newSalt, exportKey, importKey };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
