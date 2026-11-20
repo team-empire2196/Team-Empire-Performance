@@ -759,17 +759,19 @@ let orbitRaf = 0;
 function startOrbit() {
   const stage = $('#stage'), orbit = $('#orbit'); if (!stage || !orbit) return;
   const ags = A().slice(); const n = ags.length || 0;
-  orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 54)}</div>`).join('');
+  orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 80)}</div>`).join('');
   const els = $$('.orb', orbit); const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; const t0 = performance.now();
   cancelAnimationFrame(orbitRaf);
   const tick = (now) => {
     if ($('#welcome').hidden) return;
-    const W = stage.clientWidth, H = stage.clientHeight; const tl = Math.min(W * .4, H * .5, 230); stage.style.setProperty('--tl', tl + 'px');
-    const rx = W / 2 - 34, ry = Math.max(H / 2 - 40, tl / 2 + 34); const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
+    const W = stage.clientWidth, H = stage.clientHeight; const tl = Math.min(W * .5, H * .5, 320); stage.style.setProperty('--tl', tl + 'px');
+    const av = Math.round(tl * .4);                       /* agent photo = 40% of the Team Leader photo */
+    const rx = W / 2 - av / 2 - 6, ry = Math.max(H / 2 - av / 2 - 8, tl / 2 + av * .45); const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
     els.forEach((el, i) => {
-      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .5 + .55 * dp;
-      el.style.transform = `translate(${(W / 2 + rx * Math.sin(th) - 27).toFixed(1)}px,${(H / 2 + ry * Math.cos(th) - 27).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-      el.style.zIndex = Math.round(dp * 100); el.style.opacity = (.55 + .45 * dp).toFixed(2);
+      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .55 + .45 * dp;
+      el.firstElementChild.style.setProperty('--s', av + 'px');
+      el.style.transform = `translate(${(W / 2 + rx * Math.sin(th) - av / 2).toFixed(1)}px,${(H / 2 + ry * Math.cos(th) - av / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+      el.style.zIndex = Math.round(dp * 100); el.style.opacity = (.6 + .4 * dp).toFixed(2);
     });
     orbitRaf = requestAnimationFrame(tick);
   };
@@ -1000,6 +1002,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) live
 safe(() => { const t = localStorage.getItem('te-theme'); if (t) document.documentElement.dataset.theme = t; });
 $$('[data-birds]').forEach((el) => { el.innerHTML = BIRDS(el.closest('#welcome') ? 16 : 18); });
 $$('[data-chase]').forEach((el) => { el.innerHTML = CHASE(); });
+setTimeout(() => { const f = $('#loginForm'); if (f) f.classList.remove('intro'); }, 2300);
 $('#loginForm').addEventListener('submit', (e) => { e.preventDefault(); doLogin($('#lid').value, $('#lpw').value); });
 const saved = safe(() => JSON.parse(sessionStorage.getItem('te-cred') || 'null'));
 if (saved && saved.id) { $('#lid').value = saved.id; doLogin(saved.id, saved.pw, true); }
