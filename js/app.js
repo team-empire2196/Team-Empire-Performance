@@ -1,7 +1,7 @@
 /* Team Empire Performance Hub – static site (GitHub Pages). All logic runs in the browser. */
 (() => {
 'use strict';
-const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000', agentPass: '1234', tlName: 'Md Ariful Mowla Neloy' };
+const CONFIG = { team: 'Team Empire', dataUrl: 'data/data.enc.json', photoMap: 'photos/map.json', defaultId: 'Team Empire', defaultPass: '0000', agentPass: '1234', salaryUrl: 'data/salary.enc.json', tlName: 'Md Ariful Mowla Neloy' };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -51,9 +51,9 @@ const SECTIONS = [
   { id: 'audit', name: 'Audit Details', ic: 'i-audit' }, { id: 'emp', name: 'Parameter Empathy', ic: 'i-heart' },
   { id: 'fcr', name: 'FCR, Quiz & SD', ic: 'i-target' }, { id: 'dkb', name: 'Complaint & DKB', ic: 'i-flag' },
   { id: 'lag', name: 'Lag & Adherence', ic: 'i-clock' }, { id: 'aht', name: 'AHT & CFS', ic: 'i-phone' },
-  { id: 'punch', name: 'Shift & Punch', ic: 'i-cal' }, { id: 'team', name: 'My all Colleague Details', ic: 'i-user' },
+  { id: 'punch', name: 'Punch Data', ic: 'i-cal' }, { id: 'salary', name: 'Salary Data', ic: 'i-wallet', admin: true }, { id: 'team', name: 'My all Colleague Details', ic: 'i-user' },
 ];
-const SUBS = ['ce', 'nce', 'emp', 'rtc', 'att', 'dkb', 'dkbabs', 'sd', 'comp', 'aht', 'csat', 'brk'];
+const SUBS = ['esc', 'ce', 'nce', 'emp', 'rtc', 'att', 'dkb', 'dkbabs', 'sd', 'comp', 'aht', 'csat', 'brk'];
 const A = () => (S.data ? S.data.agents : []);
 const cur = () => A().find((a) => a.id === S.agent) || null;
 const pool = () => { const c = cur(); return c ? [c] : A(); };
@@ -99,7 +99,7 @@ const EAGLE = () => `<svg class="eagle-svg" viewBox="0 0 220 130" aria-hidden="t
 </svg>`;
 const SNAKE = () => { const n = 20; let seg = ''; for (let i = n - 1; i >= 0; i--) { const x = 196 - i * 9.2, y = 38 + Math.sin(i * .62) * 8, r = i === 0 ? 8.5 : 7.6 - i * .27; seg += `<circle class="sg" style="animation-delay:${(-i * 0.085).toFixed(2)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(1.8, r).toFixed(1)}" fill="${i % 3 === 0 ? '#1e7a35' : i % 3 === 1 ? '#2fa24b' : '#c9b13a'}"/>`; }
   return `<svg class="snake-svg" viewBox="0 0 220 76" aria-hidden="true"><g>${seg}<g class="sg" style="animation-delay:0s"><circle cx="196" cy="38" r="9" fill="#1e7a35"/><circle cx="199" cy="35" r="2.6" fill="#ffe14d"/><circle cx="200" cy="35" r="1.1" fill="#111"/><path class="tongue" d="M204 40L214 40M214 40L219 36M214 40L219 44" stroke="#e0293a" stroke-width="1.6" fill="none" stroke-linecap="round"/></g></g></svg>`; };
-const CHASE = () => `<div class="snake">${SNAKE()}</div><div class="eagle">${EAGLE()}</div>`;
+const CHASE = () => `<div class="eagle">${EAGLE()}</div>`;   /* snake removed from the login page */
 /* ---------- team stats ---------- */
 function csatTeam(list) { const c = sum(list.map((a) => a.csatCnt)), d = sum(list.map((a) => a.dsatCnt)); return c + d > 0 ? c / (c + d) : null; }
 function fcrTeam(list) { const c = sum(list.map((a) => a.fcrCalls)), f = sum(list.map((a) => a.fcrCount)); return c > 0 ? f / c : avg(list.map((a) => a.fcr)); }
@@ -287,7 +287,7 @@ const DRILL = [
   { k: 'ce', t: 'Critical Error (CE)', ic: 'i-shield' }, { k: 'nce', t: 'Non-Critical (NCE)' }, { k: 'emp', t: 'Empathy' }, { k: 'rtc', t: 'RTC accuracy' },
   { k: 'att', t: 'Attendance' }, { k: 'dkb', t: 'DKB attendance' }, { k: 'sd', t: 'Service delivery' },
 ];
-const KPI_SUB = { ce: 'ce', emp: 'emp', adh: 'att', dkb: 'dkb', sd: 'sd', comp: 'comp', aht: 'aht', csat: 'csat', brk: 'brk' };
+const KPI_SUB = { ce: 'ce', emp: 'emp', adh: 'att', dkb: 'dkb', sd: 'sd', esc: 'esc', comp: 'comp', aht: 'aht', csat: 'csat', brk: 'brk' };
 const qaIn = (a, m) => (a.qa || []).filter((r) => !m || r.ym === m);
 const qaMonths = (a) => [...new Set((a.qa || []).map((r) => r.ym).filter(Boolean))].sort().reverse();
 const pickMonth = (months) => (S.month && months.includes(S.month) ? S.month : (months.includes(S.data.ym) ? S.data.ym : months[0] || null));
@@ -376,12 +376,74 @@ function brkPage(a) {
   return `<div class="grid g-tiles">${[kvTile('Extra break (month)', a.xbrk ? fDur(a.xbrk) : 'None', 'KPI sheet', a.xbrk ? 'bad' : 'good'), kvTile('Days with extra break', R.length, 'Dates listed below', R.length ? 'warn' : 'good'), kvTile('Extra break from daily rows', R.length ? hrs(tot) : 'None', 'Sum of the days below', R.length ? 'warn' : 'good')].join('')}</div><div class="card reveal"><h3>Dates with extra break</h3><div class="sub">Break taken above the target break for the shift</div>${dtable(['Date', 'Shift', 'Target break', 'Break taken', 'Extra'], rows, 'No extra break on any day. Well done.')}</div>`;
 }
 
+/* ---------- Escalation accuracy breakdown ---------- */
+function escPage(a) {
+  const all = a.escRows || []; const st = S.dq.esc || (S.dq.esc = { q: '', val: 'invalid' });
+  const inv = all.filter((r) => /^invalid$/i.test(r.acc)), val = all.filter((r) => /^valid$/i.test(r.acc));
+  const rows = escFilter(all, st); S.qctx = { kind: 'esc', id: a.id, m: '' };
+  const cnt = {}; inv.forEach((r) => { const t = r.cat || 'No category'; cnt[t] = (cnt[t] || 0) + 1; });
+  const bd = Object.entries(cnt).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([l, n]) => ({ l, v: n, st: 'bad' }));
+  const acc = all.length ? val.length / all.length : null;
+  const banner = !all.length ? `<div class="banner warn reveal">No tickets for this agent were found in the "Escalation Accuracy Raw" sheet (matched by Genex ID in TicketCreatedBy). KPI sheet shows ${a.esc == null ? '—' : fPct(a.esc, 1)}.</div>` : '';
+  return `${banner}<div class="grid g-tiles">${[kvTile('Escalation accuracy', acc == null ? '—' : fPct(acc, 1), 'KPI sheet: ' + (typeof a.esc === 'number' ? fPct(a.esc, 1) : '—'), acc != null && acc >= .95 ? 'good' : 'warn'), kvTile('Invalid tickets', inv.length, 'Wrongly escalated', inv.length ? 'bad' : 'good'), kvTile('Valid tickets', val.length, '', 'good'), kvTile('Total escalations', all.length, 'Till the last raw update', 'brand')].join('')}</div>
+  ${bd.length ? `<div class="card reveal"><h3>Invalid tickets by category</h3><div class="sub">Where the invalid escalations came from</div>${barList(bd, { f: (x) => x + ' ticket' + (x === 1 ? '' : 's') })}</div>` : ''}
+  <div class="card reveal"><h3>Escalation tickets</h3><div class="sub">Tap a row for the full details and the front-line comment.</div>
+  <div class="dtools"><div class="field"><label for="es-v">Show</label><select id="es-v" data-dq="val"><option value="invalid" ${st.val === 'invalid' ? 'selected' : ''}>Invalid only</option><option value="valid" ${st.val === 'valid' ? 'selected' : ''}>Valid only</option><option value="" ${!st.val ? 'selected' : ''}>All</option></select></div>
+  <div class="field"><label for="es-q">Search</label><input id="es-q" data-dq="q" type="search" placeholder="Ticket, number, category…" value="${esc(st.q)}"></div></div>
+  <div id="dqBody">${escTable(rows)}</div></div>`;
+}
+function escFilter(all, st) { let rows = all.filter((r) => !st.val || r.acc.toLowerCase() === st.val); if (st.q) { const q = st.q.toLowerCase(); rows = rows.filter((r) => [r.tid, r.ms, r.cat, r.sub, r.fl].join(' ').toLowerCase().includes(q)); } return rows; }
+const accPill = (v) => (/^invalid$/i.test(v) ? pill('bad', 'Invalid') : /^valid$/i.test(v) ? pill('good', 'Valid') : pill('mute', v || '—'));
+function escTable(rows) {
+  if (!rows.length) return '<div class="empty">No matching tickets.</div>';
+  const cut = (s, n = 90) => (s.length > n ? s.slice(0, n) + '…' : s);
+  return `<div class="tbl-wrap wrapcells"><table><thead><tr><th>Ticket ID</th><th>MSISDN</th><th>Category</th><th>Sub category</th><th>Created</th><th>Created by</th><th>Accuracy</th><th>Front-line comment</th></tr></thead><tbody>${rows.map((r) => `<tr class="ex" data-ex="1"><td class="num">${esc(r.tid)}</td><td class="num">${esc(r.ms)}</td><td>${esc(r.cat || '—')}</td><td>${esc(r.sub || '—')}</td><td class="num">${r.t != null ? fD(r.t) + ' ' + fT(r.t).slice(0, 5) : '—'}</td><td>${esc(r.by)}</td><td>${accPill(r.acc)}</td><td>${esc(cut(r.fl))}</td></tr>
+  <tr class="dt" hidden><td colspan="8"><dl><dt>Ticket ID</dt><dd>${esc(r.tid)}</dd><dt>MSISDN</dt><dd>${esc(r.ms)}</dd><dt>Category › Sub category</dt><dd>${esc([r.cat, r.sub].filter(Boolean).join(' › ') || '—')}</dd><dt>Ticket status</dt><dd>${esc(r.st || '—')}</dd><dt>Channel</dt><dd>${esc([r.ch, r.sc].filter(Boolean).join(' · ') || '—')}</dd><dt>Created by</dt><dd>${esc(r.by)}</dd><dt>Escalation accuracy</dt><dd>${esc(r.acc)}</dd><dt>Front-line comment</dt><dd style="white-space:pre-wrap">${esc(r.fl || '—')}</dd></dl></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- Salary Data (admin only) ---------- */
+const BDT = (v) => '৳ ' + (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fH = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
+function salOf(e) {
+  const sk = /premium/i.test(e.skill) ? 'Premium' : /mass/i.test(e.skill) ? 'Mass' : '';
+  const base = sk ? S.salary.base[sk] : 0, bonus = S.salary.bonus[e.bucket] ?? 0;
+  const days = e.rows.map((r) => ({ d: r[0], sh: r[1], pay: r[2], brk: r[3], hrs: r[4], amt: r[4] * (base + bonus) }));
+  const hrs = sum(days.map((x) => x.hrs));
+  return { e, sk, base, bonus, rate: base + bonus, days, hrs, basic: hrs * base, kpi: hrs * bonus, total: hrs * (base + bonus), worked: days.filter((x) => x.hrs > 0).length };
+}
+function secSalary() {
+  const hd = head('Salary Data', 'Hour-based salary: payable hours × (basic rate + KPI rate). Visible to the admin only.');
+  if (!S.isAdmin) return hd + '<div class="msg bad">This page is only for the admin.</div>';
+  if (!S.salary) return hd + '<div class="banner warn">No salary data has been published yet. Open Update Data, choose the KPI workbook that has the "Salary Data" sheet, read it and publish.</div>';
+  const sd = S.salary, c = cur(), period = fD(sd.from) + ' to ' + fD(sd.to);
+  const rule = `<div class="card reveal sal-rule"><h3>Salary rule</h3><div class="sub">Cycle ${period}. KPI bucket is last month's result.</div><div class="rules"><div><b>Premium</b><span>Basic ${BDT(sd.base.Premium)} / hour</span></div><div><b>Mass</b><span>Basic ${BDT(sd.base.Mass)} / hour</span></div><div><b>KPI bonus / hour</b><span>A, A+ ${sd.bonus.A} · B ${sd.bonus.B} · C ${sd.bonus.C} · D ${sd.bonus.D}</span></div></div></div>`;
+  if (c) {
+    const e = sd.agents[c.id]; if (!e) return hd + `<div class="banner warn">${esc(c.name)} is not in the Salary Data sheet.</div>`;
+    const x = salOf(e);
+    const dayRows = x.days.map((r) => r.hrs > 0
+      ? `<div class="sal-day"><div class="dl"><b>${fD(r.d)}</b><span>${fWd(r.d)} · ${esc(r.sh)}</span></div><div class="dm"><span>${fH(r.pay)} work + ${fH(r.brk)} break = <b>${fH(r.hrs)} h</b></span><span class="rt">${fNum(r.hrs, 2)} h × ${BDT(x.rate)}</span></div><div class="da num">${BDT(r.amt)}</div></div>`
+      : `<div class="sal-day off"><div class="dl"><b>${fD(r.d)}</b><span>${fWd(r.d)}</span></div><div class="dm"><span>${esc(r.sh || 'No shift')}</span></div><div class="da num">—</div></div>`).join('');
+    return `${hd}<div class="crumb reveal"><button class="btn" data-spick="all"><svg><use href="#i-back"/></svg>All agents</button></div>
+    <div class="card sal-hero reveal"><div class="who">${avatar(c, 56)}<div><h2>${esc(c.name)}</h2><span>${esc(x.sk || e.skill || '—')} · KPI bucket ${esc(e.bucket || '—')} · EID ${esc(c.id)}</span></div></div>
+      <div class="big num">${BDT(x.total)}</div><div class="sub">Monthly salary for ${period}</div>
+      <div class="calc">${fNum(x.hrs, 2)} h <i>×</i> ${BDT(x.rate)} <small>(${BDT(x.base)} basic + ${BDT(x.bonus)} KPI)</small></div></div>
+    <div class="grid g-tiles">${[kvTile('Payable hours', fH(x.hrs) + ' h', fNum(x.hrs, 2) + ' hours', 'brand'), kvTile('Basic pay', BDT(x.basic), BDT(x.base) + ' / hour', 'brand'), kvTile('KPI pay', BDT(x.kpi), 'Bucket ' + (e.bucket || '—') + ' · ' + BDT(x.bonus) + ' / hour', x.kpi ? 'good' : 'warn'), kvTile('Days worked', x.worked, 'of ' + x.days.length + ' days in cycle', 'brand')].join('')}</div>
+    <div class="card reveal"><h3>Daily salary</h3><div class="sub">Payable hours = payroll hours + break (Salary Data sheet, Total column)</div><div class="sal-days">${dayRows}</div></div>`;
+  }
+  const L = A().map((a) => sd.agents[a.id] ? Object.assign(salOf(sd.agents[a.id]), { a }) : null).filter(Boolean).sort((p, q) => q.total - p.total);
+  const tot = sum(L.map((x) => x.total)), th = sum(L.map((x) => x.hrs));
+  S.salRows = L;
+  const cards = L.map((x) => `<button class="card sal-card lift reveal" data-spick="${esc(x.a.id)}">${avatar(x.a, 44)}<div class="nm"><b>${esc(x.a.name)}</b><span>${esc(x.sk || '—')} · ${BDT(x.rate)}/h · <em class="bk bk-${esc((x.e.bucket || '').replace('+', 'p'))}">${esc(x.e.bucket || '—')}</em></span><span class="mut">${fH(x.hrs)} h · ${x.worked} days</span></div><div class="am num">${BDT(x.total)}</div></button>`).join('');
+  return `${hd}<div class="grid g-tiles">${[kvTile('Team payable', BDT(tot), L.length + ' agents', 'brand'), kvTile('Total hours', fH(th) + ' h', period, 'brand'), kvTile('Average salary', BDT(L.length ? tot / L.length : 0), 'Per agent', 'brand')].join('')}</div>${rule}
+  <div class="card reveal"><h3>Agents</h3><div class="sub">Tap an agent for the daily breakdown. <button class="btn sm" id="salCsv">Export CSV</button></div><div class="sal-cards">${cards}</div></div>`;
+}
+
 /* ---------- detail pages (CE, NCE, Empathy, RTC, Attendance, DKB, SD) ---------- */
-const SUB_TITLE = { ce: 'Critical Error (CE) breakdown', nce: 'Non-Critical Error (NCE) breakdown', emp: 'Empathy breakdown', rtc: 'RTC accuracy breakdown', att: 'Attendance breakdown', dkb: 'DKB attendance', dkbabs: 'DKB absent details', sd: 'Service delivery complaints', comp: 'Login hour compliance breakdown', aht: 'AHT breakdown', csat: 'CFS (CSAT) breakdown', brk: 'Break time and extra break' };
+const SUB_TITLE = { ce: 'Critical Error (CE) breakdown', nce: 'Non-Critical Error (NCE) breakdown', emp: 'Empathy breakdown', rtc: 'RTC accuracy breakdown', att: 'Attendance breakdown', dkb: 'DKB attendance', dkbabs: 'DKB absent details', sd: 'Service delivery complaints', esc: 'Escalation accuracy breakdown', comp: 'Login hour compliance breakdown', aht: 'AHT breakdown', csat: 'CFS (CSAT) breakdown', brk: 'Break time and extra break' };
 function detailPage(a) {
   const k = S.sub;
   const back = `<div class="crumb reveal"><button class="btn" data-sub=""><svg><use href="#i-back"/></svg>My Performance</button>${k === 'dkbabs' ? '<button class="btn" data-sub="dkb"><svg><use href="#i-back"/></svg>DKB attendance</button>' : ''}<span class="who">${avatar(a, 34)}<b>${esc(a.name)}</b><span class="t-mute">ID ${esc(a.id)}</span></span></div>`;
-  const body = k === 'att' ? attPage(a) : k === 'dkb' ? dkbPage(a) : k === 'dkbabs' ? dkbAbsPage(a) : k === 'sd' ? sdPage(a) : k === 'comp' ? compPage(a) : k === 'aht' ? ahtPage(a) : k === 'csat' ? csatPage(a) : k === 'brk' ? brkPage(a) : qBlock(k, a, true);
+  const body = k === 'att' ? attPage(a) : k === 'dkb' ? dkbPage(a) : k === 'dkbabs' ? dkbAbsPage(a) : k === 'sd' ? sdPage(a) : k === 'esc' ? escPage(a) : k === 'comp' ? compPage(a) : k === 'aht' ? ahtPage(a) : k === 'csat' ? csatPage(a) : k === 'brk' ? brkPage(a) : qBlock(k, a, true);
   return `${back}<div class="sec-h reveal"><div><h1>${SUB_TITLE[k]}</h1><p>${esc(a.name)}, ${esc(S.data.month || '')}. Only this agent's rows from the uploaded workbook are shown.</p></div></div>${body}`;
 }
 const monthSel = (months, m, id = 'monthSel') => (months.length > 1 ? `<div class="field"><label for="${id}">Month</label><select id="${id}">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monName(x))}</option>`).join('')}</select></div>` : (months.length ? `<span class="chip">${esc(monName(months[0]))}</span>` : ''));
@@ -615,7 +677,7 @@ function secPunch() {
   const attMax = Math.max(0, ...L.flatMap((x) => (x.attRows || []).filter((r) => r.li != null).map((r) => r.d)));
   const attNote = attMax ? ` · System login/logout available up to ${fD(attMax)}` : '';
   const miss = !info ? `<div class="msg warn">No punch file has been uploaded yet. System login and logout come from the attendance sheet; punch in and out appear once the admin uploads the Punch file in Update Data.</div>` : '';
-  return head('Shift & Punch', 'Shift time, system login and logout (attendance sheet) against punch in and punch out (punch file).') + miss +
+  return head('Punch Data', 'Shift, system login and logout (Attendance raw) against punch in and punch out (Punch Data).') + miss +
     `<div class="card reveal" style="--i:1"><h3>${single ? esc(L[0].name) + ' · day by day' : 'Team on ' + (day != null ? fD(day) : '—')}</h3><div class="sub">${info ? `Punch data: ${fD(info.from)} to ${fD(info.to)} · ${info.agents} agents` : 'Punch data not loaded'}${attNote}</div>${pick}${table('punch' + (single ? '1' : ''), cols, rows, { sort: single ? 1 : 0, dir: single ? 'desc' : 'asc' })}</div>`;
 }
 
@@ -642,7 +704,7 @@ function secTeam() {
 }
 
 /* ---------- render + router ---------- */
-const VIEWS = { dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht, punch: secPunch, team: secTeam };
+const VIEWS = { dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht, punch: secPunch, salary: secSalary, team: secTeam };
 function render(keepScroll) {
   const root = $('#content'), sc = window.scrollY;
   const sn = (SECTIONS.find((s) => s.id === S.sec) || {}).name || '';
@@ -667,7 +729,7 @@ function afterRender() {
 const routeHash = (r) => '#' + [r.sec, r.agent && r.agent !== 'all' ? r.agent : '', r.sub || ''].join('/').replace(/\/+$/, '');
 function applyHash() {
   const [sec, agent, sub] = decodeURIComponent(location.hash.slice(1)).split('/');
-  const nsec = SECTIONS.some((s) => s.id === sec) ? sec : 'dash';
+  const nsec = SECTIONS.some((s) => s.id === sec && (!s.admin || S.isAdmin)) ? sec : 'dash';
   const nag = agent && A().some((a) => a.id === agent) ? agent : 'all';
   const nsub = nsec === 'agent' && nag !== 'all' && SUBS.includes(sub) ? sub : null;
   return { sec: nsec, agent: nag, sub: nsub };
@@ -690,7 +752,7 @@ function onRoute() {
   routed = true; apply();
 }
 function buildChrome() {
-  $('#nav').innerHTML = SECTIONS.map((s) => `<button data-sec="${s.id}"><svg><use href="#${s.ic}"/></svg>${s.name}</button>`).join('');
+  $('#nav').innerHTML = SECTIONS.filter((x) => !x.admin || S.isAdmin).map((s) => `<button data-sec="${s.id}"><svg><use href="#${s.ic}"/></svg>${s.name}</button>`).join('');
   fillAgents();
 }
 function fillAgents() {
@@ -707,6 +769,10 @@ async function fetchVault() {
   if (r.status === 404) return null;
   if (!r.ok) throw new Error('Could not load the data file (HTTP ' + r.status + ').');
   const txt = await r.text(); S.sig = hashStr(txt); return JSON.parse(txt);
+}
+async function loadSalary(id, pass) {
+  S.salary = null; if (!isAdminId(id)) return;
+  try { const r = await fetch(CONFIG.salaryUrl + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; S.salary = await Core.vaultOpen(await r.json(), id, pass); } catch (e) { S.salary = null; }
 }
 async function loadPhotos() { try { const r = await fetch(CONFIG.photoMap + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) S.photos = await r.json(); } catch (e) { S.photos = {}; } }
 const te8 = new TextEncoder();
@@ -728,6 +794,7 @@ async function signIn(id, pw) {
     try { S.data = await Core.vaultOpen(vault, id, unwrapPw); } catch (e) { throw new Error('BAD'); }
   }
   S.unwrapPw = unwrapPw; S.cred = { id, pw }; S.isAdmin = isAdminId(id); S.status = 'ready';
+  await loadSalary(id, unwrapPw);
   S.me = S.data ? (S.data.agents.find((a) => a.vdi && normId(a.vdi) === normId(id)) || null) : null;
 }
 function showApp() {
@@ -758,20 +825,38 @@ const SOLDIER = () => `<svg viewBox="0 0 100 190"><g><ellipse cx="50" cy="184" r
 let orbitRaf = 0;
 function startOrbit() {
   const stage = $('#stage'), orbit = $('#orbit'); if (!stage || !orbit) return;
-  const ags = A().slice(); const n = ags.length || 0;
+  const ags = A().slice(); const n = ags.length || 1;
   orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 80)}</div>`).join('');
   const els = $$('.orb', orbit); const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; const t0 = performance.now();
+  let L = null;
+  const per = (rx, ry) => Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+  function layout() {      /* fit everything on one screen at 100% zoom, photos never overlap */
+    const W = stage.clientWidth, Hs = Math.max(300, innerHeight - 205);
+    let best = null;
+    for (let T = Math.min(400, W * .5); T >= 90; T -= 6) {
+      let av = T * .5, rx, ry;
+      for (let k = 0; k < 5; k++) { ry = Math.max(T / 2 + av / 2 + 8, (Hs - av - 8) / 2); rx = Math.max(W / 2 - av / 2 - 4, ry); av = Math.min(T * .5, per(rx, ry) / (n * 1.12)); }
+      ry = Math.max(T / 2 + av / 2 + 8, (Hs - av - 8) / 2); rx = Math.max(W / 2 - av / 2 - 4, ry);
+      if (T / 2 + av / 2 + 8 <= (Hs - av - 8) / 2 + .5 && av >= Math.min(T * .5, 30)) { best = { T, av, rx, ry }; break; }
+    }
+    if (!best) { const T = 90, av = 40; best = { T, av, rx: W / 2 - 24, ry: T / 2 + av / 2 + 8 }; }
+    const { T, av, rx, ry } = best; const H = Math.round(2 * ry + av + 8);
+    stage.style.height = H + 'px'; stage.style.setProperty('--tl', Math.round(T) + 'px');
+    els.forEach((el) => { el.firstElementChild.style.setProperty('--s', Math.round(av) + 'px'); });
+    const N = 720, ts = [], cum = [0];                 /* equal spacing along the ellipse */
+    for (let q = 0; q <= N; q++) ts.push(q / N * Math.PI * 2);
+    for (let q = 1; q <= N; q++) { const a = ts[q - 1], b = ts[q]; cum.push(cum[q - 1] + Math.hypot(rx * (Math.sin(b) - Math.sin(a)), ry * (Math.cos(b) - Math.cos(a)))); }
+    L = { W, H, av, rx, ry, ts, cum, tot: cum[N] };
+  }
+  const at = (s) => { const { ts, cum, tot } = L; s = ((s % tot) + tot) % tot; let lo = 0, hi = cum.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; } const f = (s - cum[lo]) / ((cum[hi] - cum[lo]) || 1); return ts[lo] + (ts[hi] - ts[lo]) * f; };
+  layout(); window.addEventListener('resize', () => { if (!$('#welcome').hidden) layout(); });
   cancelAnimationFrame(orbitRaf);
   const tick = (now) => {
     if ($('#welcome').hidden) return;
-    const W = stage.clientWidth, H = stage.clientHeight; const tl = Math.min(W * .5, H * .5, 320); stage.style.setProperty('--tl', tl + 'px');
-    const av = Math.round(tl * .4);                       /* agent photo = 40% of the Team Leader photo */
-    const rx = W / 2 - av / 2 - 6, ry = Math.max(H / 2 - av / 2 - 8, tl / 2 + av * .45); const ang = reduce ? 0 : (now - t0) / 1000 * (Math.PI * 2 / 46);
+    const ph = reduce ? 0 : (now - t0) / 1000 * (L.tot / 60);
     els.forEach((el, i) => {
-      const th = ang + i * Math.PI * 2 / Math.max(1, n), dp = (Math.cos(th) + 1) / 2, sc = .55 + .45 * dp;
-      el.firstElementChild.style.setProperty('--s', av + 'px');
-      el.style.transform = `translate(${(W / 2 + rx * Math.sin(th) - av / 2).toFixed(1)}px,${(H / 2 + ry * Math.cos(th) - av / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-      el.style.zIndex = Math.round(dp * 100); el.style.opacity = (.6 + .4 * dp).toFixed(2);
+      const th = at(ph + i * L.tot / n), x = L.W / 2 + L.rx * Math.sin(th) - L.av / 2, y = L.H / 2 + L.ry * Math.cos(th) - L.av / 2;
+      el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
     });
     orbitRaf = requestAnimationFrame(tick);
   };
@@ -805,7 +890,7 @@ function guessRepo() {
 }
 function openUpload() {
   if (!S.isAdmin) return;
-  S.pending = null; S.upKpi = null; S.upPunch = null; guessRepo();
+  S.pending = null; S.pendingSalary = null; guessRepo();
   $('#modalRoot').innerHTML = `<div class="modal" id="modal"><div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="upT"><h3 id="upT">Update team data</h3>
   <p class="t-mute" style="margin:0">Admin only. Choose the two files, press <b>Read files</b>, then <b>Publish</b>. Everyone who has the site open sees the update within about a minute. You can upload just one of the two; the other stays as it is.</p>
   <div class="grid g-2" style="margin-top:8px">
@@ -820,9 +905,9 @@ const setUpState = (html) => { const el = $('#upState'); if (el) el.innerHTML = 
 const publishFields = () => `<div class="field" style="margin-top:8px"><label for="ghT">GitHub token</label><input id="ghT" type="password" autocomplete="off" placeholder="Personal access token (contents: write)"></div>
     <div class="pw"><div class="field"><label for="ghO">Owner</label><input id="ghO" type="text" value="${esc(GH.owner)}"></div><div class="field"><label for="ghR">Repo</label><input id="ghR" type="text" value="${esc(GH.repo)}"></div></div>
     <ol class="steps"><li><b>Publish to GitHub</b> saves the data file straight into your repository. The site updates itself in about a minute.</li><li>No token? Use <b>Download data file</b>, then upload it to the repo's <code>data</code> folder on github.com (replace <code>data.enc.json</code>).</li></ol>`;
-const publishButtons = () => { $('.actions').innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn" id="dlBtn"><svg><use href="#i-dl"/></svg>Download data file</button><button class="btn primary" id="pubBtn">Publish to GitHub</button>`; };
+const publishButtons = () => { $('.actions').innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn" id="dlBtn"><svg><use href="#i-dl"/></svg>Download data file(s)</button><button class="btn primary" id="pubBtn">Publish to GitHub</button>`; };
 function openMobPublish(n) {
-  guessRepo(); S.pending = S.data;
+  guessRepo(); S.pending = S.data; S.pendingSalary = null;
   $('#modalRoot').innerHTML = `<div class="modal" id="modal"><div class="sheet wide" role="dialog" aria-modal="true"><h3>Save mobile numbers</h3><p class="t-mute" style="margin:0">${n} number(s) will be saved into the shared data file.</p><div id="upState">${publishFields()}</div><div class="actions"></div></div></div>`;
   publishButtons();
 }
@@ -841,7 +926,7 @@ async function readSelected() {
       data.hist = prev.concat([{ t: at, month: data.month, n: data.agents.length, avg: avg(data.agents.map((a) => a.final)) }]).slice(-30);
       const oldBy = new Map(((old && old.agents) || []).map((a) => [a.id, a]));
       data.agents.forEach((a) => { const o = oldBy.get(a.id); if (!o) return; if (!a.mobile && o.mobile) a.mobile = o.mobile; if (!a.otp && o.otp) a.otp = o.otp; a.punch = o.punch || []; });
-      if (old && old.punchInfo) data.punchInfo = old.punchInfo;
+      if (old && old.punchInfo && !data.punchInfo) { data.punchInfo = old.punchInfo; data.agents.forEach((a) => { const o = oldBy.get(a.id); a.punch = (o && o.punch) || []; }); }
       const qa = sum(data.agents.map((a) => a.qa.length)), sdn = sum(data.agents.map((a) => a.sdRows.length));
       sumKpi = `<h4 style="margin:10px 0 4px">KPI file</h4><dl class="kv"><dt>Team</dt><dd>${esc(CONFIG.team)} · TL ${esc(data.tl)}</dd><dt>Month</dt><dd>${esc(data.month)} (${data.days.length} days)</dd><dt>Agents (KPI sheet)</dt><dd>${data.agents.length}</dd><dt>Average final score</dt><dd>${fNum(avg(data.agents.map((a) => a.final)), 2)}</dd><dt>Audited calls</dt><dd>${qa}</dd><dt>SD complaints</dt><dd>${sdn}</dd></dl>${(data.warnings || []).length ? `<div class="msg warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}`;
     } else {
@@ -853,7 +938,9 @@ async function readSelected() {
       const pi = Core.applyPunch(data, pr);
       sumPunch = `<h4 style="margin:10px 0 4px">Punch file</h4><dl class="kv"><dt>Rows read</dt><dd>${pr.rows.length}</dd><dt>Rows for KPI agents</dt><dd>${pi.rows}</dd><dt>Agents with punches</dt><dd>${pi.agents} of ${data.agents.length}</dd><dt>Dates</dt><dd>${fD(pi.from)} to ${fD(pi.to)}</dd></dl>`;
     }
-    S.pending = data;
+    const sp = Core.splitSalary(data); S.pending = sp.main; S.pendingSalary = sp.salary || S.salary || null;
+    if (sp.salary) sumKpi += `<h4 style="margin:10px 0 4px">Salary Data</h4><dl class="kv"><dt>Agents</dt><dd>${Object.keys(sp.salary.agents).length}</dd><dt>Period</dt><dd>${fD(sp.salary.from)} to ${fD(sp.salary.to)}</dd></dl>`;
+    if (f && data.punchInfo && data.punchInfo.file === 'Punch Data sheet') sumKpi += `<div class="t-mute">Punch Data sheet inside the workbook was read too (${data.punchInfo.rows} rows, ${data.punchInfo.agents} agents).</div>`;
     setUpState(`<div class="msg good">${f && f2 ? 'Both files read successfully.' : 'File read successfully.'}</div>${sumKpi}${sumPunch}${publishFields()}`);
     publishButtons();
   } catch (e) {
@@ -862,6 +949,8 @@ async function readSelected() {
     btn.disabled = false;
   }
 }
+/* salary data is sealed so that only the admin login can open it */
+async function buildSalaryFile() { return Core.vaultSeal(S.pendingSalary, [{ id: CONFIG.defaultId, pass: CONFIG.defaultPass }]); }
 async function buildVaultFile() {
   const d = S.pending; if (!d) throw new Error('Read a file first.');
   /* one login for the admin plus one per KPI-sheet agent (ID = Genex ID, default password 1234) */
@@ -889,13 +978,14 @@ async function publish() {
     const vault = await buildVaultFile();
     const bytes = new TextEncoder().encode(JSON.stringify(vault));
     await ghPut('data/data.enc.json', u8b64(bytes), 'Update team data (' + (S.pending.month || '') + ')', token);
+    if (S.pendingSalary) { const sv = await buildSalaryFile(); await ghPut('data/salary.enc.json', u8b64(new TextEncoder().encode(JSON.stringify(sv))), 'Update salary data', token); S.salary = S.pendingSalary; }
     safe(() => localStorage.setItem('te-gh', JSON.stringify({ owner: GH.owner, repo: GH.repo, branch: GH.branch })));
     S.data = S.pending; fillAgents(); closeModal(); render(true);
     toast('Published. Open dashboards refresh by themselves within about two minutes.');
   } catch (e) { const m = $('#pubMsg'); if (m) m.outerHTML = `<div class="msg bad">${esc(e.message)}</div>`; btn.disabled = false; }
 }
 async function downloadVault() {
-  try { const v = await buildVaultFile(); download('data.enc.json', JSON.stringify(v), 'application/json'); S.data = S.pending; fillAgents(); render(true); toast('Downloaded. Upload it to the repo\'s data folder to publish.'); }
+  try { const v = await buildVaultFile(); download('data.enc.json', JSON.stringify(v), 'application/json'); if (S.pendingSalary) { const sv = await buildSalaryFile(); download('salary.enc.json', JSON.stringify(sv), 'application/json'); S.salary = S.pendingSalary; } S.data = S.pending; fillAgents(); render(true); toast('Downloaded. Upload it to the repo\'s data folder to publish.'); }
   catch (e) { toast(e.message, true); }
 }
 
@@ -928,11 +1018,14 @@ const exportCSV = async (id) => { const T = S.tables[id]; if (!T) return; const 
 function refreshDq() {
   const c = S.qctx, a = c && A().find((x) => x.id === c.id), body = $('#dqBody'); if (!a || !body) return;
   if (c.kind === 'sd') { const st = S.dq.sd; const ym = (r) => (/^\d{4}-\d{2}/.test(r.rcv) ? r.rcv.slice(0, 7) : ''); let rows = (a.sdRows || []).filter((r) => !c.m || ym(r) === c.m).filter((r) => !st.val || (st.val === 'other' ? !/^(valid|invalid)$/i.test(r.val) : r.val.toLowerCase() === st.val)); if (st.q) { const q = st.q.toLowerCase(); rows = rows.filter((r) => [r.cust, r.topic, r.fl, r.cm, r.find, r.sts].join(' ').toLowerCase().includes(q)); } body.innerHTML = sdTable(a, rows); }
+  else if (c.kind === 'esc') body.innerHTML = escTable(escFilter(a.escRows || [], S.dq.esc));
   else body.innerHTML = qTable(c.kind, a, c.m);
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.btn'); if (b) { const r = document.createElement('span'); const bb = b.getBoundingClientRect(), s = Math.max(bb.width, bb.height); r.className = 'ripple'; r.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - bb.left - s / 2}px;top:${e.clientY - bb.top - s / 2}px`; b.appendChild(r); setTimeout(() => r.remove(), 650); }
   const nav = e.target.closest('[data-sec]'); if (nav) { $('#side').classList.remove('open'); go({ sec: nav.dataset.sec, sub: null }); return; }
+  const sp = e.target.closest('[data-spick]'); if (sp) { go({ sec: 'salary', agent: sp.dataset.spick }); return; }
+  if (e.target.closest('#salCsv')) { const q = (v) => '"' + String(v).replace(/"/g, '""') + '"'; const rows = [['Agent', 'EID', 'Skill', 'KPI bucket', 'Rate per hour', 'Payable hours', 'Basic pay', 'KPI pay', 'Total salary']].concat((S.salRows || []).map((x) => [x.a.name, x.a.id, x.sk, x.e.bucket, x.rate, x.hrs.toFixed(2), x.basic.toFixed(2), x.kpi.toFixed(2), x.total.toFixed(2)])); download('salary-summary.csv', '\ufeff' + rows.map((r) => r.map(q).join(',')).join('\n'), 'text/csv'); return; }
   const pk = e.target.closest('[data-pick]'); if (pk) { go({ sec: 'agent', agent: pk.dataset.pick, sub: null }); return; }
   const op = e.target.closest('[data-open]'); if (op) { const [k, id] = op.dataset.open.split(':'); go({ sec: 'agent', agent: id, sub: k }); return; }
   const sb = e.target.closest('[data-sub]'); if (sb) { go({ sec: 'agent', sub: sb.dataset.sub || null }); return; }
@@ -991,6 +1084,7 @@ async function liveCheck() {
     const first = !S.sig; S.sig = sig; if (first) return;
     const d = await Core.vaultOpen(JSON.parse(txt), S.cred.id, S.unwrapPw);
     S.data = d; S.me = d.agents.find((a) => a.vdi && normId(a.vdi) === normId(S.cred.id)) || null;
+    if (S.isAdmin) await loadSalary(S.cred.id, S.unwrapPw);
     fillAgents(); render(true); toast('Data updated. You are seeing the latest numbers.');
   } catch (e) { /* keep showing what we have */ }
 }

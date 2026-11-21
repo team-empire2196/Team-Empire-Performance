@@ -64,3 +64,8 @@ Photos are matched by **EID** and only shown for agents on the KPI sheet. To add
 ## Welcome screen, TL photo and contacts
 - After sign-in a welcome screen shows the Team Leader photo (`photos/tl.jpg`) with the 25 agents orbiting; press **Open Dashboard**. To change the TL photo, replace `photos/tl.jpg`; the name is `tlName` at the top of `js/app.js`.
 - Contact numbers and CIM OTP numbers live only inside the encrypted data file (never as plain files in the repo). Admin edits them on **My all Colleague Details** and presses **Save and publish numbers**. OTP numbers are shown to the admin, and to each agent for their own row. Keep in mind the data is decrypted in every agent's browser, so a technical person could still read it; do not treat it as strong secrecy.
+
+## Escalation, Punch Data and Salary Data (new)
+- The workbook sheets **Escalation Accuracy Raw**, **Punch Data** and **Salary Data** are read automatically when you upload the KPI workbook. A separate Punch file is now optional (it overrides the Punch Data sheet).
+- **Salary Data** is sealed in its own file `data/salary.enc.json` that only the admin login (Team Empire / 0000) can open. Agent logins cannot decrypt it. Publish uploads both files.
+- Salary = payable hours (Total column = payroll + break) x (basic + KPI rate per hour). Premium basic 57, Mass basic 50. KPI per hour: A and A+ 10, B 8, C 5, D 0. The bucket comes from the "KPI Of October For November Salary Cycle" table in the Salary Data sheet. Rates are in `js/core.js` (`base`, `bonus`).

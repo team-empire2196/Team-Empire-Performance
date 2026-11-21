@@ -197,7 +197,7 @@ const Core = (() => {
   const QNAMES = ['CE & NCE & RTC Raw', 'Quality Raw', 'CE & NCE Raw'];
   const SDNAMES = ['Service Delivery Raw', 'Service Delivery'];
   const CNAMES = ['Colleague Details', 'Colleague Contacts', 'My All Colleague Details', 'Contacts', 'Contact List', 'Mobile Numbers', 'Phone List'];
-  const SHEETS = ['KPI', 'Day Wise AHT Tracker', 'Day Wise CFS Tracker', 'Quality & DKB & Quiz Report', ...QNAMES, ...SDNAMES, ...CNAMES, 'Escalation Accuracy & FCR', 'ORT', ...ALIAS.att, ...ALIAS.dkb];
+  const SHEETS = ['KPI', 'Day Wise AHT Tracker', 'Day Wise CFS Tracker', 'Quality & DKB & Quiz Report', ...QNAMES, ...SDNAMES, ...CNAMES, 'Escalation Accuracy & FCR', 'Escalation Accuracy Raw', 'Punch Data', 'Salary Data', 'ORT', ...ALIAS.att, ...ALIAS.dkb];
   const pick = (S, names) => { for (const n of names) if (S[n]) return S[n]; return null; };
   const ymOf = (n) => { const d = serialDate(n); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
 
@@ -426,13 +426,52 @@ const Core = (() => {
       }
     }
 
+
+    /* Escalation Accuracy Raw (valid / invalid tickets per agent, matched on TicketCreatedBy = Genex ID) */
+    agents.forEach((a) => { a.escRows = []; });
+    const eS = S['Escalation Accuracy Raw'];
+    if (eS && eS[0]) {
+      const H = eS[0]; const ix = {}; H.forEach((x, i) => { const k = norm(x); if (k && !(k in ix)) ix[k] = i; });
+      const T = (row, k) => { const i = ix[norm(k)]; const v = i == null ? null : row[i]; return v == null || (typeof v === 'object') ? '' : String(v).trim(); };
+      for (let r = 1; r < eS.length; r++) {
+        const row = eS[r]; if (!row) continue;
+        const a = byVdiAll.get(norm(T(row, 'TicketCreatedBy'))); if (!a) continue;
+        const d = row[ix[norm('TicketCreatedDate')]];
+        a.escRows.push({ tid: T(row, 'TicketId'), ms: T(row, 'MSISDN'), cat: T(row, 'Category'), sub: T(row, 'SubCategory'), st: T(row, 'TicketStatus'), t: isNum(d) ? d : null, by: T(row, 'TicketCreatedBy'), ch: T(row, 'ChannelName'), sc: T(row, 'SubChannelName'), acc: T(row, 'EscalationAccuracy'), fl: T(row, 'FrontLineComments').replace(/\r/g, '').slice(0, 900) });
+      }
+      agents.forEach((a) => a.escRows.sort((x, y) => (y.t || 0) - (x.t || 0)));
+    } else warnings.push('Sheet "Escalation Accuracy Raw" not found: escalation invalid-ticket details will be empty.');
+
+    /* Salary Data: daily payable hours + the KPI bucket of the previous month (right-hand table) */
+    let salary = null;
+    const sS = S['Salary Data'];
+    if (sS && sS.length) {
+      const hr = findRow(sS, (r) => norm(r[0]) === 'date' && norm(r[1]) === 'id', 10);
+      let kr = -1; for (let r = 0; r < Math.min(sS.length, 10); r++) if (sS[r] && norm(sS[r][11]) === 'id' && norm(sS[r][14]) === 'agentskill') { kr = r; break; }
+      const cat = new Map();
+      if (kr >= 0) for (let r = kr + 1; r < sS.length; r++) { const x = sS[r]; if (!x || x[11] == null || x[11] === '') break; cat.set(idKey(x[11]), { skill: String(x[14] || '').trim(), bucket: String(x[15] || '').trim().toUpperCase() }); }
+      const hrs = (v) => (isNum(v) ? Math.round(v * 24 * 10000) / 10000 : 0);
+      const sa = {}; let dmin = null, dmax = null;
+      if (hr >= 0) for (let r = hr + 1; r < sS.length; r++) {
+        const x = sS[r]; if (!x || !isNum(x[0])) continue;
+        const a = byId.get(idKey(x[1])); if (!a) continue;
+        const e = sa[a.id] || (sa[a.id] = { id: a.id, name: a.name, skill: (cat.get(a.id) || {}).skill || '', bucket: (cat.get(a.id) || {}).bucket || '', rows: [] });
+        e.rows.push([Math.floor(x[0]), String(x[4] == null ? '' : x[4]).trim(), hrs(x[5]), hrs(x[6]), hrs(x[7])]);
+        dmin = dmin == null ? x[0] : Math.min(dmin, x[0]); dmax = dmax == null ? x[0] : Math.max(dmax, x[0]);
+      }
+      agents.forEach((a) => { const c = cat.get(a.id); if (c && !sa[a.id]) sa[a.id] = { id: a.id, name: a.name, skill: c.skill, bucket: c.bucket, rows: [] }; });
+      Object.values(sa).forEach((e) => e.rows.sort((p, q) => p[0] - q[0]));
+      if (Object.keys(sa).length) salary = { from: dmin, to: dmax, base: { Premium: 57, Mass: 50 }, bonus: { 'A+': 10, A: 10, B: 8, C: 5, D: 0 }, agents: sa, kpiMonth: 'Previous month KPI bucket' };
+      else warnings.push('Sheet "Salary Data" was found but no KPI agents matched.');
+    }
+
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const d0 = dayDates[0];
     return {
       v: 2, fileName: fileName || '', tl, notes, warnings, ym: d0 ? ymOf(Math.round((d0.getTime() - Date.UTC(1899, 11, 30)) / 864e5)) : '',
       month: d0 ? months[d0.getUTCMonth()] + ' ' + d0.getUTCFullYear() : '',
       days: dayDates.map((d) => d.getUTCDate()),
-      agents,
+      agents, salary,
     };
   }
 
@@ -445,8 +484,13 @@ const Core = (() => {
     if (!(data[0] === 0x50 && data[1] === 0x4b)) throw new Error('This does not look like an .xlsx workbook.');
     const { sheets } = await readSheets(data, SHEETS, JSZip);
     if (onProgress) onProgress(1);
-    return parseTeam(sheets, fileName);
+    const team = parseTeam(sheets, fileName);
+    const ps = sheets['Punch Data'];
+    if (ps && ps.length > 1) { try { const pr = { rows: punchRowsFromTable(ps), file: 'Punch Data sheet' }; applyPunch(team, pr); } catch (e) { team.warnings.push('Punch Data sheet could not be read: ' + e.message); } }
+    return team;
   }
+  /* the salary data is sealed in its own file that only the admin login can open */
+  function splitSalary(data) { const salary = data.salary || null; const main = Object.assign({}, data); delete main.salary; return { main, salary }; }
 
 
   /* ---------- punch data (separate CSV / Excel file) ---------- */
@@ -482,11 +526,7 @@ const Core = (() => {
     const { sheets } = await readSheets(data, [name], JSZip);
     return sheets[name] || [];
   }
-  /* returns { rows: [{...}], file } with raw header-keyed objects */
-  async function readPunchFile(u8, fileName, password, JSZip) {
-    let table;
-    if (u8[0] === 0x50 && u8[1] === 0x4b || isOle(u8)) table = await firstSheetRows(u8, password, JSZip);
-    else table = csvParse(new TextDecoder('utf-8').decode(u8));
+  function punchRowsFromTable(table) {
     let hr = table.findIndex((r) => r && r.some((x) => norm(x) === 'gnxid' || norm(x) === 'genexid' || norm(x) === 'eid'));
     if (hr < 0) throw new Error('This does not look like the punch file (no "Gnx ID" column found).');
     const H = table[hr].map((x) => norm(x)); const ix = (...ns) => { for (const n of ns) { const i = H.indexOf(norm(n)); if (i >= 0) return i; } return -1; };
@@ -499,7 +539,14 @@ const Core = (() => {
       const d = toSerial(row[c.date]); if (d == null) continue;
       rows.push({ id: idNorm(row[c.id]), d: Math.floor(d), sh: g(row, 'roster'), fi: toSerial(row[c.fp]), la: toSerial(row[c.lp]), dur: g(row, 'dur'), pc: +g(row, 'pc') || 0, st: g(row, 'st'), ot: g(row, 'ot'), site: g(row, 'site'), lob: g(row, 'lob'), role: g(row, 'role'), nm: g(row, 'name') });
     }
-    return { rows, file: fileName || '' };
+    return rows;
+  }
+  /* returns { rows: [{...}], file } with raw header-keyed objects */
+  async function readPunchFile(u8, fileName, password, JSZip) {
+    let table;
+    if (u8[0] === 0x50 && u8[1] === 0x4b || isOle(u8)) table = await firstSheetRows(u8, password, JSZip);
+    else table = csvParse(new TextDecoder('utf-8').decode(u8));
+    return { rows: punchRowsFromTable(table), file: fileName || '' };
   }
   const idNorm = (v) => (isNum(v) ? String(Math.round(v)) : String(v == null ? '' : v).trim());
   /* attach punch rows to KPI agents only (KPI sheet is the eligibility filter) */
@@ -565,6 +612,6 @@ const Core = (() => {
   }
   const exportKey = async (key) => toB64(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
   const importKey = (b) => crypto.subtle.importKey('raw', b64(b), 'AES-GCM', true, ['encrypt', 'decrypt']);
-  return { readPunchFile, applyPunch, csvParse, processFile, parseTeam, readSheets, decryptFile, isOle, SHEETS, deriveKey, vaultEncrypt, vaultDecrypt, vaultSeal, vaultOpen, normId, newSalt, exportKey, importKey };
+  return { splitSalary, readPunchFile, applyPunch, csvParse, processFile, parseTeam, readSheets, decryptFile, isOle, SHEETS, deriveKey, vaultEncrypt, vaultDecrypt, vaultSeal, vaultOpen, normId, newSalt, exportKey, importKey };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
