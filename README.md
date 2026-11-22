@@ -69,3 +69,12 @@ Photos are matched by **EID** and only shown for agents on the KPI sheet. To add
 - The workbook sheets **Escalation Accuracy Raw**, **Punch Data** and **Salary Data** are read automatically when you upload the KPI workbook. A separate Punch file is now optional (it overrides the Punch Data sheet).
 - **Salary Data** is sealed in its own file `data/salary.enc.json` that only the admin login (Team Empire / 0000) can open. Agent logins cannot decrypt it. Publish uploads both files.
 - Salary = payable hours (Total column = payroll + break) x (basic + KPI rate per hour). Premium basic 57, Mass basic 50. KPI per hour: A and A+ 10, B 8, C 5, D 0. The bucket comes from the "KPI Of October For November Salary Cycle" table in the Salary Data sheet. Rates are in `js/core.js` (`base`, `bonus`).
+
+## What's new in this version
+- **Welcome page** always fits one screen at 100% zoom (laptop, big monitor and phone). Galaxy backdrop, orbiting team photos, greeting that types itself and rotating motivation lines (English + Bangla). **Open Dashboard** does a hyperspace jump.
+- **Page change animation**: the Team Empire logo glows in the middle of the screen for about a second, then the page changes. **Audit Details** plays a 2-second auditor-on-the-logo animation first.
+- **Every page has its own animated background** (Dashboard = space with planets, a meteor every 5 s and a tiny black hole; Salary Data = money; Punch = scanner; and so on). **My Performance** keeps the original look. Reduced-motion devices get still backgrounds.
+- **Dashboard**: every KPI parameter is a card (Final score, CE, NCE, Empathy, RTC, FCR, Escalation, Service Delivery, Adherence, Login hour compliance, AHT, CSAT, Break, DKB, Quiz). Tap a card to open the team breakdown of that score, then tap an agent for the detail.
+- **Phone**: bottom menu bar (Home, Me, AHT & CFS, Punch, More), bigger tap targets.
+- **Salary Data (admin only)** has a dropdown: **Previous month Salary** (16 Oct to 15 Nov, KPI of October) and **Current (Ongoing) Month Draft Salary** (16 Nov to 15 Dec: everyone at the Premium rate, KPI part from the current November KPI grade, hours counted up to the last day in the sheet). A salary cycle always runs from the 16th to the 15th.
+- The Salary Data sheet may now hold two blocks side by side ("Previous Cycle" and "Current Running Cycle"); the reader finds them by header text.

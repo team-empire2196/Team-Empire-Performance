@@ -103,31 +103,69 @@ const CHASE = () => `<div class="eagle">${EAGLE()}</div>`;   /* snake removed fr
 /* ---------- team stats ---------- */
 function csatTeam(list) { const c = sum(list.map((a) => a.csatCnt)), d = sum(list.map((a) => a.dsatCnt)); return c + d > 0 ? c / (c + d) : null; }
 function fcrTeam(list) { const c = sum(list.map((a) => a.fcrCalls)), f = sum(list.map((a) => a.fcrCount)); return c > 0 ? f / c : avg(list.map((a) => a.fcr)); }
-function tiles(list, solo) {
-  const t = (l, v, f, sub, st, raw, dec, suf) => ({ l, v, f, sub, st, raw, dec, suf });
-  const aht = solo ? list[0].aht : avg(list.map((a) => a.aht));
-  const csat = solo ? list[0].csat : csatTeam(list);
-  const adh = avg(list.map((a) => a.adh)), ce = avg(list.map((a) => a.ce)), emp = avg(list.map((a) => a.emp));
-  const fcr = solo ? list[0].fcr : fcrTeam(list), comp = avg(list.map((a) => a.comp)), dkb = avg(list.map((a) => a.dkb));
-  const fin = avg(list.map((a) => a.final));
-  const q = list.filter((a) => a.elig === 'Qualified').length;
-  return [
-    t('Average Final Score', fin, 'n2', solo ? 'Rank #' + rankOf(list[0]) + ' of ' + A().length : q + ' of ' + list.length + ' qualified', solo ? gradeCls(list[0].cat) : 'brand', fin, 2, '', solo ? 'Grade ' + (list[0].cat || '—') : null),
-    t('Average Handling Time', aht, 's', 'Target ' + TARGET_AHT + ' s', ahtStat(aht, TARGET_AHT), aht, 0, ' s'),
-    t('CSAT (CFS)', csat, 'p1', 'Target ' + TARGET_CSAT * 100 + '%', csatStat(csat, TARGET_CSAT), isN(csat) ? csat * 100 : null, 1, '%'),
-    t('Schedule Adherence', adh, 'p1', 'Target 100%', adh >= .95 ? 'good' : adh >= .85 ? 'warn' : 'bad', isN(adh) ? adh * 100 : null, 1, '%'),
-    t('Critical Error', ce, 'p1', 'Target 1.5% or less', !isN(ce) ? 'mute' : ce <= .015 ? 'good' : ce <= .05 ? 'warn' : 'bad', isN(ce) ? ce * 100 : null, 1, '%'),
-    t('Empathy', emp, 'p1', 'Target 90%', !isN(emp) ? 'mute' : emp >= .9 ? 'good' : emp >= .85 ? 'warn' : 'bad', isN(emp) ? emp * 100 : null, 1, '%'),
-    t('First Call Resolution', fcr, 'p1', 'Target 93%', !isN(fcr) ? 'mute' : fcr >= .93 ? 'good' : fcr >= .9 ? 'warn' : 'bad', isN(fcr) ? fcr * 100 : null, 1, '%'),
-    t('Login Compliance', comp, 'p1', 'Target 100%', !isN(comp) ? 'mute' : comp >= .95 ? 'good' : comp >= .85 ? 'warn' : 'bad', isN(comp) ? comp * 100 : null, 1, '%'),
-    t('DKB Attendance', dkb, 'p1', 'Target 95%+', dkbStat(dkb)[0], isN(dkb) ? dkb * 100 : null, 1, '%'),
-  ];
-}
-const tileHTML = (x, i) => {
-  const shown = x.f === 'n2' ? fNum(x.v, 2) : fmtBy[x.f](x.v);
-  const cnt = isN(x.raw) ? `<b class="count" data-to="${x.raw}" data-dec="${x.dec}" data-suf="${esc(x.suf)}">${shown}</b>` : `<b>${shown}</b>`;
-  return `<div class="card tile lift reveal" style="--i:${i}"><span class="l">${esc(x.l)}</span><span class="v num">${cnt}</span><span class="s">${pill(x.st, x.st === 'good' ? 'On track' : x.st === 'warn' ? 'Watch' : x.st === 'bad' ? 'Needs focus' : x.st === 'brand' ? 'Team' : 'No data')}${esc(x.sub)}</span></div>`;
+/* ---------- dashboard KPI cards: every KPI parameter, each card opens the team breakdown of that score ---------- */
+const firstNum = (list, key) => { const a = list.find((x) => isN(x[key])); return a ? a[key] : null; };
+const KPI_ORDER = ['ce', 'nce', 'emp', 'rtc', 'fcr', 'esc', 'sd', 'adh', 'comp', 'aht', 'csat', 'brk', 'dkb', 'quiz'];
+const KPI_IDS = ['final'].concat(KPI_ORDER);
+const KPI_INFO = {
+  final: 'The marks earned on every KPI added together. The grade (A+ to D) comes from this final score.',
+  ce: 'Share of audited calls that had a critical error. Lower is better.',
+  nce: 'Share of audited calls that had a non-critical error (from the audit raw sheet). Lower is better.',
+  emp: 'Empathy accuracy on audited calls against the target.',
+  rtc: 'Share of audited calls that passed the RTC check (from the audit raw sheet).',
+  fcr: 'First call resolution: calls resolved on the first contact (FCR count divided by calls).',
+  esc: 'Complaint escalation accuracy: valid tickets divided by all escalated tickets.',
+  sd: 'Service delivery complaints recorded against the agent. Lower is better.',
+  adh: 'Schedule adherence for the month.',
+  comp: 'Login hour compliance: ready time as a share of the target ready hours.',
+  aht: 'Average handling time per call, in seconds. Lower is better.',
+  csat: 'CFS score: satisfied customers divided by all survey responses.',
+  brk: 'Break taken above the allowed break. No extra break earns full marks.',
+  dkb: 'DKB attendance in the DKB sessions.',
+  quiz: 'Average quiz score over the quiz phases.',
 };
+function kpiDefs() {
+  const G = A();
+  const std = (id, o = {}) => {
+    const k = KPIS.find((x) => x.id === id), tg = k.t ? firstNum(G, k.t) : null;
+    return Object.assign({ id, name: k.name, max: k.max, dir: k.dir, sub: KPI_SUB[id] || null,
+      fmt: id === 'brk' ? (v) => (v ? fDur(v) : 'None') : fmtBy[k.f], val: (a) => a[k.v], marks: (a) => a[k.k],
+      tg: k.t ? (isN(tg) ? fmtBy[k.tf](tg) : '—') : (k.tgt || '—'), team: (l) => avg(l.map((a) => a[k.v])),
+      raw: (v) => (k.f === 'p1' || k.f === 'p2' ? [v * 100, 1, '%'] : k.f === 's' ? [v, 0, ' s'] : k.f === 'n' ? [v, 2, ''] : null) }, o);
+  };
+  const aud = (a) => { const q = qaIn(a, S.data.ym); return { n: q.length, nce: q.filter((r) => r.nceTxt).length, rtcF: q.filter((r) => r.rtc === 'Fail').length }; };
+  const audTeam = (l) => { const x = l.map(aud); return { n: sum(x.map((y) => y.n)), nce: sum(x.map((y) => y.nce)), rtcF: sum(x.map((y) => y.rtcF)) }; };
+  return {
+    final: { id: 'final', name: 'Final score', max: null, dir: 'high', sub: null, fmt: (v) => fNum(v, 2), val: (a) => a.final, marks: null, tg: '—', team: (l) => avg(l.map((a) => a.final)), raw: (v) => [v, 2, ''] },
+    ce: std('ce'), emp: std('emp'), esc: std('esc'), sd: std('sd'), adh: std('adh'), comp: std('comp'), aht: std('aht'), dkb: std('dkb'), quiz: std('quiz'),
+    fcr: std('fcr', { team: fcrTeam }), csat: std('csat', { team: csatTeam }),
+    brk: std('brk', { team: (l) => avg(l.map((a) => a.xbrk)), val: (a) => a.xbrk, raw: () => null }),
+    nce: { id: 'nce', name: 'Non-Critical Error (NCE)', max: null, dir: 'low', sub: 'nce', fmt: (v) => fPct(v, 1), tg: '—', marks: null, val: (a) => { const x = aud(a); return x.n ? x.nce / x.n : null; }, team: (l) => { const x = audTeam(l); return x.n ? x.nce / x.n : null; }, raw: (v) => [v * 100, 1, '%'], subTxt: (l) => { const x = audTeam(l); return x.nce + ' NCE in ' + x.n + ' audits'; }, pct: (v) => (1 - v) * 100 },
+    rtc: { id: 'rtc', name: 'RTC Accuracy', max: null, dir: 'high', sub: 'rtc', fmt: (v) => fPct(v, 1), tg: '—', marks: null, val: (a) => { const x = aud(a); return x.n ? 1 - x.rtcF / x.n : null; }, team: (l) => { const x = audTeam(l); return x.n ? 1 - x.rtcF / x.n : null; }, raw: (v) => [v * 100, 1, '%'], subTxt: (l) => { const x = audTeam(l); return x.rtcF + ' RTC fails in ' + x.n + ' audits'; }, pct: (v) => v * 100 },
+  };
+}
+const stTxt = { good: 'On track', warn: 'Watch', bad: 'Needs focus', brand: 'Audit data', mute: 'No data' };
+function dashCards(list, solo) {
+  const D = kpiDefs(), c = solo ? list[0] : null, G = A();
+  const fin = solo ? c.final : avg(list.map((a) => a.final));
+  const q = list.filter((a) => a.elig === 'Qualified').length, top = ranked()[0];
+  const gmix = ['A+', 'A', 'B', 'C', 'D'].map((g) => [g, G.filter((a) => a.cat === g).length]).filter((x) => x[1]).map((x) => x[0] + ' <b>' + x[1] + '</b>').join(' · ');
+  const hero = `<button class="kpi-card kpi-hero reveal" data-kpi="final" aria-label="Final score: open the team breakdown"><span><span class="l">${solo ? 'Final score' : 'Average final score'}</span><span class="big num">${isN(fin) ? `<b class="count" data-to="${fin}" data-dec="2" data-suf="">${fNum(fin, 2)}</b>` : '—'}</span></span>
+    <span class="meta">${solo ? `<span>Rank <b>#${rankOf(c)}</b> of ${G.length}</span><span>Grade <b>${esc(c.cat || '—')}</b> · ${esc(c.elig || '')}</span><span>Team average <b>${fNum(avg(G.map((a) => a.final)), 2)}</b></span>` : `<span><b>${q} of ${list.length}</b> agents qualified</span>${top ? `<span>Top performer <b>${esc(top.name)}</b> · ${fNum(top.final, 2)}</span>` : ''}<span>Grades: ${gmix || '—'}</span>`}</span>
+    <span class="go">Team breakdown ›</span></button>`;
+  const cards = KPI_ORDER.map((id, i) => {
+    const d = D[id], v = solo ? d.val(c) : d.team(list), has = isN(v);
+    let st, sub, pct = 0;
+    if (d.marks) {
+      if (solo) { const m = d.marks(c), tm = d.team(G); st = kStat(m, d.max); sub = 'Team average ' + (isN(tm) ? d.fmt(tm) : '—'); pct = isN(m) ? Math.max(0, m / d.max * 100) : 0; }
+      else { const have = list.filter((a) => isN(d.marks(a))), full = have.filter((a) => d.marks(a) / d.max >= .999).length, p = have.length ? full / have.length : null; st = p == null ? 'mute' : p >= .7 ? 'good' : p >= .35 ? 'warn' : 'bad'; sub = have.length ? full + ' of ' + have.length + ' on full marks' : 'No agent data yet'; pct = p == null ? 0 : p * 100; }
+    } else { st = has ? 'brand' : 'mute'; sub = d.subTxt(list); pct = has ? d.pct(v) : 0; }
+    const shown = has ? d.fmt(v) : (v == null || v === '' ? '—' : esc(v)), rw = has && d.raw ? d.raw(v) : null;
+    const tg = d.tg && d.tg !== '—' ? `<em>Target ${esc(d.tg)}</em>` : '';
+    return `<button class="kpi-card reveal" style="--i:${i + 1}" data-kpi="${id}" aria-label="${esc(d.name)}: open the team breakdown"><span class="l"><span>${esc(d.name)}</span>${tg}</span><span class="v num">${rw ? `<b class="count" data-to="${rw[0]}" data-dec="${rw[1]}" data-suf="${esc(rw[2])}">${shown}</b>` : `<b>${shown}</b>`}</span><span class="s">${pill(st, stTxt[st])}<span>${esc(sub)}</span></span><span class="mini"><i class="${st}" style="--w:${Math.max(2, Math.min(100, pct)).toFixed(1)}%;--i:${i}"></i></span><span class="go">Team breakdown ›</span></button>`;
+  });
+  return `<div class="g-kpi">${hero}${cards.join('')}</div>`;
+}
 
 /* ---------- charts ---------- */
 const niceMax = (v) => { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; };
@@ -219,7 +257,6 @@ const withAv = (a, o) => Object.assign({ av: avatar(a, 22) }, o);
 
 function secDash() {
   const c = cur(), list = pool();
-  const tl = tiles(list, !!c);
   const R = ranked();
   const grades = ['A+', 'A', 'B', 'C', 'D'], gc = { 'A+': '#0e9b74', A: '#46c9a0', B: '#2f8cf0', C: '#e0a31a', D: '#d6404c' };
   const G = A(); const gcount = grades.map((g) => ({ g, n: G.filter((a) => a.cat === g).length }));
@@ -249,7 +286,7 @@ function secDash() {
   ];
   return `
   <div class="sec-h reveal"><div><h1>${c ? nameHTML(c, 40) : 'Team Overview'}</h1><p>${c ? 'Individual snapshot compared with the team' : 'How the whole team is performing this month'}</p></div>${stampHTML()}</div>
-  <div class="grid g-tiles">${tl.map(tileHTML).join('')}</div>
+  ${dashCards(list, !!c)}
   <div class="strip reveal" style="--i:2">${strip.map((s) => `<div class="s"><small>${esc(s[0])}</small><b class="num">${esc(String(s[1]))}</b></div>`).join('')}</div>
   <div class="grid g-2">
     <div class="card reveal" style="--i:2"><h3>Team leaderboard</h3><div class="sub">Rank, photo, final score and grade. Click an agent to open their performance.</div>${leaderboard(R, S.lbAll ? 0 : 10)}</div>
@@ -305,6 +342,51 @@ function drillStats(a) {
     att: [attPct != null ? fPct(attPct) : fPct(a.adh), ay.length ? ay.filter((r) => r.st < 1).length + ' affected days of ' + ay.length : 'See details'],
     dkb: [dk.pct != null ? fPct(dk.pct) : fPct(a.dkb), dk.A + ' absent · ' + dk.P + ' present'], sd: [String(sdN), sdN ? 'complaints in raw sheet' : 'No complaint rows in raw sheet'],
   };
+}
+
+/* ---------- team breakdown of one KPI (opened by a dashboard card) ---------- */
+function teamDaily() {
+  const G = A(), days = S.data.days;
+  return { days, aht: days.map((_, i) => { const v = avg(G.map((a) => (a.ahtDay || [])[i])); return isN(v) ? Math.round(v) : null; }), csat: days.map((_, i) => { const c1 = sum(G.map((a) => (a.csatDay || [])[i])), d1 = sum(G.map((a) => (a.dsatDay || [])[i])); return c1 + d1 > 0 ? +(c1 / (c1 + d1) * 100).toFixed(1) : null; }) };
+}
+function secKpi() {
+  const D = kpiDefs(), id = D[S.sub] ? S.sub : 'final', d = D[id], G = A();
+  const team = d.team(G);
+  const rows = G.map((a) => ({ a, v: d.val(a) }));
+  const have = rows.filter((r) => isN(r.v)).sort((p, q) => (d.dir === 'low' ? p.v - q.v : q.v - p.v) || (q.a.final ?? 0) - (p.a.final ?? 0));
+  const ord = have.concat(rows.filter((r) => !isN(r.v)));
+  const kdef = KPIS.find((k) => k.id === id) || {};
+  const isPct = kdef.f === 'p1' || kdef.f === 'p2' || id === 'nce' || id === 'rtc';
+  const maxV = id === 'final' ? 4 : isPct ? 1 : Math.max(...have.map((r) => r.v), 1e-9);
+  const stOf = (r) => { if (id === 'final') return gradeCls(r.a.cat); if (d.marks) return kStat(d.marks(r.a), d.max); if (!isN(r.v) || !isN(team)) return 'mute'; return (d.dir === 'low' ? r.v <= team : r.v >= team) ? 'good' : 'warn'; };
+  const mk = (r) => { if (id === 'final') return r.a.cat || '—'; if (d.marks) { const m = d.marks(r.a); return isN(m) ? (m > 0 ? '+' : '') + fNum(m, 2) : '—'; } return isN(r.v) ? (stOf(r) === 'good' ? 'Better' : 'Below avg') : '—'; };
+  const full = d.marks ? have.filter((r) => d.marks(r.a) / d.max >= .999).length : null;
+  const fr = full == null || !have.length ? 0 : full / have.length;
+  const best = have[0], worst = have[have.length - 1];
+  const tg = d.tg && d.tg !== '—' ? 'Target ' + d.tg : (id === 'final' ? 'All KPIs together' : '');
+  const tiles = [
+    kvTile(id === 'final' ? 'Team average' : 'Team value', isN(team) ? d.fmt(team) : '—', tg, 'brand'),
+    d.marks ? kvTile('On full marks', full + ' of ' + have.length, 'agents with data', fr >= .7 ? 'good' : fr >= .35 ? 'warn' : 'bad') : kvTile('Agents with data', have.length + ' of ' + G.length, id === 'final' ? 'qualified or not' : 'from the audit raw sheet', 'brand'),
+    best ? kvTile('Best performer', esc(best.a.name), d.fmt(best.v), 'good', 'nmv') : '',
+    worst && worst !== best ? kvTile('Needs most focus', esc(worst.a.name), d.fmt(worst.v), 'warn', 'nmv') : '',
+  ].join('');
+  const list = `<div class="kpi-rank">${ord.map((r, i) => {
+    const st = stOf(r), w = isN(r.v) ? Math.max(2, Math.min(100, r.v / maxV * 100)) : 0;
+    const attr = d.sub ? `data-open="${d.sub}:${esc(r.a.id)}"` : `data-pick="${esc(r.a.id)}"`;
+    return `<button class="rw reveal ${r.a.id === S.agent ? 'me' : ''}" style="--i:${Math.min(i, 14)}" ${attr} title="Open ${esc(r.a.name)}"><span class="n">${i + 1}</span>${avatar(r.a, 34)}<span class="nm">${esc(r.a.name)}</span><span class="bar"><i class="${st}" style="--w:${w.toFixed(1)}%;--i:${i}"></i></span><span class="vv">${isN(r.v) ? d.fmt(r.v) : esc(r.v == null || r.v === '' ? '—' : r.v)}</span><span class="mk">${pill(st, mk(r))}</span></button>`;
+  }).join('')}</div>`;
+  let extra = '';
+  const T = teamDaily();
+  if (id === 'aht') extra = `<div class="card reveal" style="--i:3"><h3>Daily AHT</h3><div class="sub">Team average per day, seconds. Red line is the target.</div>${chart({ labels: T.days, series: [{ name: 'AHT (s)', vals: T.aht }], target: TARGET_AHT, tl: 'Target 180s', yf: (v) => Math.round(v), tf: (v) => Math.round(v) + ' s', aria: 'Daily AHT' })}</div>`;
+  if (id === 'csat') extra = `<div class="card reveal" style="--i:3"><h3>Daily CSAT (CFS)</h3><div class="sub">Team satisfied-customer share per day</div>${chart({ labels: T.days, series: [{ name: 'CSAT %', vals: T.csat, color: 'var(--sky)' }], target: 93, tl: 'Target 93%', yf: (v) => Math.round(v) + '%', tf: (v) => v.toFixed(1) + '%', aria: 'Daily CSAT' })}</div>`;
+  if (id === 'final') {
+    const gr = (S.data.grades || []).map((g) => g[0] + ' ≥ ' + fNum(g[1], 2)).join(' · ');
+    extra = `<div class="card reveal" style="--i:3"><h3>How the final score is made</h3><div class="sub">Marks every agent earned on every KPI, sorted by final score.${gr ? ' Grades: ' + esc(gr) + '.' : ''}</div>${matrixHTML(ranked())}</div>`;
+  }
+  return `<div class="sec-h reveal"><div><button class="backlink" data-sec="dash"><svg><use href="#i-back"/></svg>Dashboard</button><h1>${esc(d.name)}</h1><p>${esc(KPI_INFO[id])}</p></div>${stampHTML()}</div>
+  <div class="grid g-tiles">${tiles}</div>
+  <div class="card reveal" style="--i:2"><h3>Agent ranking</h3><div class="sub">Best to weakest. Tap an agent to see ${d.sub ? 'the dates, calls and reasons behind this number' : 'their performance page'}.</div>${list}</div>
+  ${extra}`;
 }
 function secAgent() {
   const a = cur();
@@ -402,7 +484,7 @@ function escTable(rows) {
 }
 
 /* ---------- Salary Data (admin only) ---------- */
-const BDT = (v) => '৳ ' + (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const BDT = (v) => '৳\u00a0' + (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fH = (h) => { const m = Math.round(h * 60); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
 function salOf(e) {
   const sk = /premium/i.test(e.skill) ? 'Premium' : /mass/i.test(e.skill) ? 'Mass' : '';
@@ -415,17 +497,22 @@ function secSalary() {
   const hd = head('Salary Data', 'Hour-based salary: payable hours × (basic rate + KPI rate). Visible to the admin only.');
   if (!S.isAdmin) return hd + '<div class="msg bad">This page is only for the admin.</div>';
   if (!S.salary) return hd + '<div class="banner warn">No salary data has been published yet. Open Update Data, choose the KPI workbook that has the "Salary Data" sheet, read it and publish.</div>';
-  const sd = S.salary, c = cur(), period = fD(sd.from) + ' to ' + fD(sd.to);
-  const rule = `<div class="card reveal sal-rule"><h3>Salary rule</h3><div class="sub">Cycle ${period}. KPI bucket is last month's result.</div><div class="rules"><div><b>Premium</b><span>Basic ${BDT(sd.base.Premium)} / hour</span></div><div><b>Mass</b><span>Basic ${BDT(sd.base.Mass)} / hour</span></div><div><b>KPI bonus / hour</b><span>A, A+ ${sd.bonus.A} · B ${sd.bonus.B} · C ${sd.bonus.C} · D ${sd.bonus.D}</span></div></div></div>`;
+  const root = S.salary, mode = root[S.salMode] ? S.salMode : (root.prev ? 'prev' : (root.cur ? 'cur' : 'old')), P = root[mode] || root, draft = mode === 'cur';
+  const sd = { base: root.base, bonus: root.bonus, agents: P.agents, from: P.cycleFrom || P.from, to: P.cycleTo || P.to }, c = cur(), period = fD(sd.from) + ' to ' + fD(sd.to);
+  const elapsed = P.asOf && P.cycleFrom ? P.asOf - P.cycleFrom + 1 : 0, cyc = P.cycleTo && P.cycleFrom ? P.cycleTo - P.cycleFrom + 1 : 0;
+  const opt = (v, t) => `<option value="${v}" ${v === mode ? 'selected' : ''}>${t}</option>`;
+  const bar = `<div class="card sal-bar reveal"><div class="field"><label for="salMode">Salary period</label><select id="salMode">${root.prev ? opt('prev', 'Previous month Salary') : ''}${root.cur ? opt('cur', 'Current (Ongoing) Month Draft Salary') : ''}</select></div><div class="sal-cyc"><b>${period}</b><span>${draft ? `Draft · KPI of ${esc(P.kpiMonth)} (current) · hours counted till ${P.asOf ? fD(P.asOf) : '—'} · day ${elapsed} of ${cyc}` : `${esc(P.salaryMonth || '')} salary cycle · KPI of ${esc(P.kpiMonth || 'last month')}`}</span></div>${draft && cyc ? `<div class="prog"><i style="width:${Math.min(100, elapsed / cyc * 100).toFixed(0)}%"></i></div>` : ''}</div>${draft ? '<div class="banner warn reveal">Draft, not final. Everyone is paid at the Premium rate and the KPI part uses the current KPI grade, so the numbers change whenever new data is uploaded.</div>' : ''}`;
+
+  const rule = `<div class="card reveal sal-rule"><h3>Salary rule</h3><div class="sub">Cycle ${period}. ${draft ? 'Draft: everyone at the Premium rate, KPI grade from the current month.' : 'KPI bucket is last month\'s result.'}</div><div class="rules"><div><b>Premium</b><span>Basic ${BDT(sd.base.Premium)} / hour</span></div><div><b>Mass</b><span>Basic ${BDT(sd.base.Mass)} / hour</span></div><div><b>KPI bonus / hour</b><span>A, A+ ${sd.bonus.A} · B ${sd.bonus.B} · C ${sd.bonus.C} · D ${sd.bonus.D}</span></div></div></div>`;
   if (c) {
     const e = sd.agents[c.id]; if (!e) return hd + `<div class="banner warn">${esc(c.name)} is not in the Salary Data sheet.</div>`;
     const x = salOf(e);
     const dayRows = x.days.map((r) => r.hrs > 0
       ? `<div class="sal-day"><div class="dl"><b>${fD(r.d)}</b><span>${fWd(r.d)} · ${esc(r.sh)}</span></div><div class="dm"><span>${fH(r.pay)} work + ${fH(r.brk)} break = <b>${fH(r.hrs)} h</b></span><span class="rt">${fNum(r.hrs, 2)} h × ${BDT(x.rate)}</span></div><div class="da num">${BDT(r.amt)}</div></div>`
       : `<div class="sal-day off"><div class="dl"><b>${fD(r.d)}</b><span>${fWd(r.d)}</span></div><div class="dm"><span>${esc(r.sh || 'No shift')}</span></div><div class="da num">—</div></div>`).join('');
-    return `${hd}<div class="crumb reveal"><button class="btn" data-spick="all"><svg><use href="#i-back"/></svg>All agents</button></div>
+    return `${hd}${bar}<div class="crumb reveal"><button class="btn" data-spick="all"><svg><use href="#i-back"/></svg>All agents</button></div>
     <div class="card sal-hero reveal"><div class="who">${avatar(c, 56)}<div><h2>${esc(c.name)}</h2><span>${esc(x.sk || e.skill || '—')} · KPI bucket ${esc(e.bucket || '—')} · EID ${esc(c.id)}</span></div></div>
-      <div class="big num">${BDT(x.total)}</div><div class="sub">Monthly salary for ${period}</div>
+      <div class="big num">${BDT(x.total)}</div><div class="sub">${draft ? 'Draft salary so far' : 'Monthly salary'} for ${period}</div>
       <div class="calc">${fNum(x.hrs, 2)} h <i>×</i> ${BDT(x.rate)} <small>(${BDT(x.base)} basic + ${BDT(x.bonus)} KPI)</small></div></div>
     <div class="grid g-tiles">${[kvTile('Payable hours', fH(x.hrs) + ' h', fNum(x.hrs, 2) + ' hours', 'brand'), kvTile('Basic pay', BDT(x.basic), BDT(x.base) + ' / hour', 'brand'), kvTile('KPI pay', BDT(x.kpi), 'Bucket ' + (e.bucket || '—') + ' · ' + BDT(x.bonus) + ' / hour', x.kpi ? 'good' : 'warn'), kvTile('Days worked', x.worked, 'of ' + x.days.length + ' days in cycle', 'brand')].join('')}</div>
     <div class="card reveal"><h3>Daily salary</h3><div class="sub">Payable hours = payroll hours + break (Salary Data sheet, Total column)</div><div class="sal-days">${dayRows}</div></div>`;
@@ -434,7 +521,8 @@ function secSalary() {
   const tot = sum(L.map((x) => x.total)), th = sum(L.map((x) => x.hrs));
   S.salRows = L;
   const cards = L.map((x) => `<button class="card sal-card lift reveal" data-spick="${esc(x.a.id)}">${avatar(x.a, 44)}<div class="nm"><b>${esc(x.a.name)}</b><span>${esc(x.sk || '—')} · ${BDT(x.rate)}/h · <em class="bk bk-${esc((x.e.bucket || '').replace('+', 'p'))}">${esc(x.e.bucket || '—')}</em></span><span class="mut">${fH(x.hrs)} h · ${x.worked} days</span></div><div class="am num">${BDT(x.total)}</div></button>`).join('');
-  return `${hd}<div class="grid g-tiles">${[kvTile('Team payable', BDT(tot), L.length + ' agents', 'brand'), kvTile('Total hours', fH(th) + ' h', period, 'brand'), kvTile('Average salary', BDT(L.length ? tot / L.length : 0), 'Per agent', 'brand')].join('')}</div>${rule}
+  const est = draft && elapsed ? tot / elapsed * cyc : null;
+  return `${hd}${bar}<div class="grid g-tiles">${[kvTile(draft ? 'Draft payable so far' : 'Team payable', BDT(tot), L.length + ' agents', 'brand'), kvTile('Total hours', fH(th) + ' h', period, 'brand'), kvTile('Average salary', BDT(L.length ? tot / L.length : 0), 'Per agent', 'brand'), est != null ? kvTile('Estimate at this pace', BDT(est), 'Full cycle, if the pace holds', 'warn') : ''].join('')}</div>${rule}
   <div class="card reveal"><h3>Agents</h3><div class="sub">Tap an agent for the daily breakdown. <button class="btn sm" id="salCsv">Export CSV</button></div><div class="sal-cards">${cards}</div></div>`;
 }
 
@@ -704,12 +792,15 @@ function secTeam() {
 }
 
 /* ---------- render + router ---------- */
-const VIEWS = { dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht, punch: secPunch, salary: secSalary, team: secTeam };
+const SCENE_OF = { dash: 'space', kpi: 'space', agent: null, audit: 'audit', emp: 'emp', fcr: 'fcr', dkb: 'dkb', lag: 'lag', aht: 'aht', punch: 'punch', salary: 'salary', team: 'team' };
+const VIEWS = { kpi: secKpi, dash: secDash, agent: secAgent, audit: secAudit, emp: secEmp, fcr: secFcr, dkb: secDkb, lag: secLag, aht: secAht, punch: secPunch, salary: secSalary, team: secTeam };
 function render(keepScroll) {
   const root = $('#content'), sc = window.scrollY;
   const sn = (SECTIONS.find((s) => s.id === S.sec) || {}).name || '';
-  $('#pageTitle').textContent = S.sec === 'agent' && S.sub ? SUB_TITLE[S.sub] : sn;
-  $$('#nav button').forEach((b) => b.setAttribute('aria-current', b.dataset.sec === S.sec ? 'page' : 'false'));
+  const navSec = S.sec === 'kpi' ? 'dash' : S.sec;
+  $('#pageTitle').textContent = S.sec === 'agent' && S.sub ? SUB_TITLE[S.sub] : S.sec === 'kpi' && S.data ? (kpiDefs()[S.sub] || kpiDefs().final).name : sn;
+  $$('#nav button,#tabbar button[data-sec]').forEach((b) => b.setAttribute('aria-current', b.dataset.sec === navSec ? 'page' : 'false'));
+  if (window.FX) FX.scene(S.data ? SCENE_OF[S.sec] || null : null);
   if (!S.data) {
     root.innerHTML = `<div class="state"><img alt="" src="logo.png"><h1>No data published yet</h1><p>Use <b>Update Data</b> to upload the KPI Excel file and publish it for the whole team.</p><button class="btn primary" data-open-up><svg><use href="#i-up"/></svg>Update Data</button></div>`;
     return;
@@ -731,28 +822,36 @@ function applyHash() {
   const [sec, agent, sub] = decodeURIComponent(location.hash.slice(1)).split('/');
   const nsec = SECTIONS.some((s) => s.id === sec && (!s.admin || S.isAdmin)) ? sec : 'dash';
   const nag = agent && A().some((a) => a.id === agent) ? agent : 'all';
-  const nsub = nsec === 'agent' && nag !== 'all' && SUBS.includes(sub) ? sub : null;
-  return { sec: nsec, agent: nag, sub: nsub };
+  const nsec2 = nsec === 'dash' && sec === 'kpi' ? 'kpi' : nsec;
+  const nsub = nsec2 === 'agent' && nag !== 'all' && SUBS.includes(sub) ? sub : (nsec2 === 'kpi' && KPI_IDS.includes(sub) ? sub : null);
+  return { sec: nsec2, agent: nag, sub: nsub };
 }
 let routed = false;
 function go(patch) {            /* change page (no transition animation any more; the eagle and snake live on the login page only) */
   const r = Object.assign({ sec: S.sec, agent: S.agent, sub: S.sub }, patch);
-  if (r.sec !== 'agent' && !('sub' in patch)) r.sub = null;
-  if (r.agent === 'all') r.sub = null;
+  if (r.sec !== 'agent' && r.sec !== 'kpi' && !('sub' in patch)) r.sub = null;
+  if (r.agent === 'all' && r.sec === 'agent') r.sub = null;
   const h = routeHash(r);
   if (location.hash === h) return;
   location.hash = h;            /* hashchange handler does the transition (also makes the browser back button work) */
 }
+let pendingRoute = false;
 function onRoute() {
   if (!S.data && S.status !== 'ready') return;
+  if (window.FX && FX.busy()) { pendingRoute = true; return; }
   const r = applyHash();
   const changed = r.sec !== S.sec || r.agent !== S.agent || r.sub !== S.sub;
   if (!changed && routed) return;
-  const apply = () => { S.sec = r.sec; S.agent = r.agent; S.sub = r.sub; S.month = null; S.dq = {}; $('#agentSel').value = S.agent; render(); };
-  routed = true; apply();
+  const apply = () => { $('#side').classList.remove('open'); S.sec = r.sec; S.agent = r.agent; S.sub = r.sub; S.month = null; S.dq = {}; $('#agentSel').value = S.agent; render(); };
+  const first = !routed, kind = r.sec !== S.sec ? (r.sec === 'audit' ? 'audit' : 'glow') : 'quick';
+  routed = true;
+  if (first || !window.FX) return apply();
+  FX.run(kind, apply, () => { if (pendingRoute) { pendingRoute = false; onRoute(); } });
 }
 function buildChrome() {
   $('#nav').innerHTML = SECTIONS.filter((x) => !x.admin || S.isAdmin).map((s) => `<button data-sec="${s.id}"><svg><use href="#${s.ic}"/></svg>${s.name}</button>`).join('');
+  const TABS = [['dash', 'Home', 'i-dash'], ['agent', 'Me', 'i-user'], ['aht', 'AHT & CFS', 'i-phone'], ['punch', 'Punch', 'i-cal']];
+  $('#tabbar').innerHTML = TABS.map((t) => `<button data-sec="${t[0]}" aria-label="${t[1]}"><svg><use href="#${t[2]}"/></svg><span>${t[1]}</span></button>`).join('') + '<button id="tabMore" aria-label="More"><svg><use href="#i-menu"/></svg><span>More</span></button>';
   fillAgents();
 }
 function fillAgents() {
@@ -804,6 +903,7 @@ function showApp() {
   if (S.me && !location.hash) history.replaceState(null, '', routeHash({ sec: 'agent', agent: S.me.id }));
   const h = applyHash(); S.sec = h.sec; S.agent = h.agent; S.sub = h.sub; $('#agentSel').value = S.agent;
   routed = true; render();
+  if (window.FX && S.data) FX.setFaces(A().map((a) => photoUrl(a)).filter(Boolean));
 }
 
 /* ---------- birds, soldier and the welcome screen ---------- */
@@ -822,58 +922,112 @@ const SOLDIER = () => `<svg viewBox="0 0 100 190"><g><ellipse cx="50" cy="184" r
 <g class="arm"><path d="M72 68c8 3 16 8 16 18l-9 3c-1-6-5-8-10-10z" fill="#55663a"/><path d="M62 62c10-2 18 2 22 12l-7 3c-3-6-8-8-14-8z" fill="#55663a"/><rect x="80" y="64" width="11" height="9" rx="4" fill="#e0b48c"/></g>
 <rect x="44" y="48" width="12" height="9" fill="#e0b48c"/><circle cx="50" cy="40" r="15" fill="#e0b48c"/><circle cx="45" cy="40" r="1.8" fill="#222"/><circle cx="55" cy="40" r="1.8" fill="#222"/><path d="M45 48c3 2 7 2 10 0" stroke="#8a4b34" stroke-width="2" fill="none" stroke-linecap="round"/>
 <path d="M33 36c0-14 7-22 17-22s17 8 17 22z" fill="#55663a"/><rect x="31" y="34" width="38" height="5" rx="2.5" fill="#3b4a27"/><path d="M50 18l2 4 4 .6-3 3 .8 4-3.8-2-3.8 2 .8-4-3-3 4-.6z" fill="#d9ac69" transform="translate(0 -2) scale(.8) translate(12 6)"/></g></svg>`;
-let orbitRaf = 0;
-function startOrbit() {
-  const stage = $('#stage'), orbit = $('#orbit'); if (!stage || !orbit) return;
-  const ags = A().slice(); const n = ags.length || 1;
-  orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 80)}</div>`).join('');
-  const els = $$('.orb', orbit); const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; const t0 = performance.now();
-  let L = null;
-  const per = (rx, ry) => Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
-  function layout() {      /* fit everything on one screen at 100% zoom, photos never overlap */
-    const W = stage.clientWidth, Hs = Math.max(300, innerHeight - 205);
-    let best = null;
-    for (let T = Math.min(400, W * .5); T >= 90; T -= 6) {
-      let av = T * .5, rx, ry;
-      for (let k = 0; k < 5; k++) { ry = Math.max(T / 2 + av / 2 + 8, (Hs - av - 8) / 2); rx = Math.max(W / 2 - av / 2 - 4, ry); av = Math.min(T * .5, per(rx, ry) / (n * 1.12)); }
-      ry = Math.max(T / 2 + av / 2 + 8, (Hs - av - 8) / 2); rx = Math.max(W / 2 - av / 2 - 4, ry);
-      if (T / 2 + av / 2 + 8 <= (Hs - av - 8) / 2 + .5 && av >= Math.min(T * .5, 30)) { best = { T, av, rx, ry }; break; }
-    }
-    if (!best) { const T = 90, av = 40; best = { T, av, rx: W / 2 - 24, ry: T / 2 + av / 2 + 8 }; }
-    const { T, av, rx, ry } = best; const H = Math.round(2 * ry + av + 8);
-    stage.style.height = H + 'px'; stage.style.setProperty('--tl', Math.round(T) + 'px');
-    els.forEach((el) => { el.firstElementChild.style.setProperty('--s', Math.round(av) + 'px'); });
-    const N = 720, ts = [], cum = [0];                 /* equal spacing along the ellipse */
-    for (let q = 0; q <= N; q++) ts.push(q / N * Math.PI * 2);
-    for (let q = 1; q <= N; q++) { const a = ts[q - 1], b = ts[q]; cum.push(cum[q - 1] + Math.hypot(rx * (Math.sin(b) - Math.sin(a)), ry * (Math.cos(b) - Math.cos(a)))); }
-    L = { W, H, av, rx, ry, ts, cum, tot: cum[N] };
+/* welcome v2: a scaled design canvas (always fits one screen at 100% zoom), galaxy backdrop, orbiting team photos, animated motivation */
+const QUOTES = [
+  ['Every call is a chance to make someone’s day better.', 'প্রতিটি কল কারও দিন ভালো করার একটি সুযোগ।'],
+  ['Small improvements, repeated daily, build a champion team.', 'প্রতিদিনের ছোট ছোট উন্নতিই গড়ে তোলে চ্যাম্পিয়ন টিম।'],
+  ['Listen first. Solve fully. Smile always.', 'আগে শুনুন, পুরোপুরি সমাধান করুন, সবসময় হাসুন।'],
+  ['Quality is a habit we choose on every single call.', 'মান হলো এমন অভ্যাস, যা আমরা প্রতিটি কলে বেছে নিই।'],
+  ['Your voice is the face of Team Empire.', 'আপনার কণ্ঠই টিম এমপায়ারের মুখ।'],
+  ['Empathy first, resolution next, excellence always.', 'আগে সহমর্মিতা, তারপর সমাধান, সবসময় শ্রেষ্ঠত্ব।'],
+  ['Together we rise, one customer at a time.', 'একসাথে আমরা এগোই, একজন একজন গ্রাহকের হাত ধরে।'],
+  ['Be on time, be ready, be brilliant.', 'সময়মতো আসুন, প্রস্তুত থাকুন, দুর্দান্ত করুন।'],
+  ['Today’s effort is tomorrow’s score.', 'আজকের পরিশ্রমই আগামীকালের স্কোর।'],
+  ['A calm voice, a clear answer, a happy customer.', 'শান্ত কণ্ঠ, স্পষ্ট উত্তর, খুশি গ্রাহক।'],
+  ['Aim for A+, and celebrate every step on the way.', 'লক্ষ্য A+, পথের প্রতিটি ধাপই উদযাপন করুন।'],
+];
+const WL = { raf: 0, qt: 0, tt: 0, st: 0, on: false, rs: null };
+const WL_LAND = { W: 1280, H: 720, cx: 640, cy: 250, tl: 238, top: 8, bot: 488 };
+const WL_PORT = { W: 640, H: 1200, cx: 320, cy: 392, tl: 292, top: 10, bot: 712 };
+function wlRing(n, D) {
+  const per = (a, b) => Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+  const tlR = D.tl / 2 + 32;
+  for (let av = 96; av >= 30; av -= 2) {
+    const rx = D.W / 2 - av / 2 - 8, ry = Math.min(D.cy - D.top, D.bot - D.cy) - av / 2;
+    if (ry - av / 2 < tlR + 4 || rx - av / 2 < tlR + 4) continue;
+    if (per(rx, ry) / n >= av * 1.1) return { av, rx, ry };
   }
-  const at = (s) => { const { ts, cum, tot } = L; s = ((s % tot) + tot) % tot; let lo = 0, hi = cum.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; } const f = (s - cum[lo]) / ((cum[hi] - cum[lo]) || 1); return ts[lo] + (ts[hi] - ts[lo]) * f; };
-  layout(); window.addEventListener('resize', () => { if (!$('#welcome').hidden) layout(); });
-  cancelAnimationFrame(orbitRaf);
-  const tick = (now) => {
-    if ($('#welcome').hidden) return;
-    const ph = reduce ? 0 : (now - t0) / 1000 * (L.tot / 60);
-    els.forEach((el, i) => {
-      const th = at(ph + i * L.tot / n), x = L.W / 2 + L.rx * Math.sin(th) - L.av / 2, y = L.H / 2 + L.ry * Math.cos(th) - L.av / 2;
-      el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-    });
-    orbitRaf = requestAnimationFrame(tick);
+  return { av: 30, rx: D.W / 2 - 23, ry: Math.min(D.cy - D.top, D.bot - D.cy) - 15 };
+}
+function wlGreeting() {
+  const h = new Date().getHours();
+  const g = h >= 5 && h < 12 ? ['Good morning', 'শুভ সকাল'] : h >= 12 && h < 17 ? ['Good afternoon', 'শুভ অপরাহ্ন'] : h >= 17 && h < 21 ? ['Good evening', 'শুভ সন্ধ্যা'] : ['Welcome back', 'শুভ রাত্রি'];
+  const nm = S.me ? String(S.me.name).split(' ')[0] : (S.isAdmin ? 'Team Empire' : '');
+  return g[0] + (nm ? ', ' + nm : '') + ' · ' + g[1];
+}
+function startWelcome() {
+  const root = $('#welcome'), fit = $('#wlFit'), vc = $('#wlVc'), orbit = $('#orbit'); if (!root || !fit) return;
+  stopWelcome(); WL.on = true;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ags = A().slice(), n = Math.max(1, ags.length);
+  orbit.innerHTML = ags.map((a) => `<div class="orb">${avatar(a, 80)}</div>`).join('');
+  const els = $$('.orb', orbit); let L = null;
+  const arc = (rx, ry) => { const N = 720, ts = [], cum = [0]; for (let q = 0; q <= N; q++) ts.push(q / N * Math.PI * 2); for (let q = 1; q <= N; q++) { const a = ts[q - 1], b = ts[q]; cum.push(cum[q - 1] + Math.hypot(rx * (Math.sin(b) - Math.sin(a)), ry * (Math.cos(b) - Math.cos(a)))); } return { ts, cum, tot: cum[N] }; };
+  const at = (T, s) => { const { ts, cum, tot } = T; s = ((s % tot) + tot) % tot; let lo = 0, hi = cum.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; } const f = (s - cum[lo]) / ((cum[hi] - cum[lo]) || 1); return ts[lo] + (ts[hi] - ts[lo]) * f; };
+  const layout = () => {
+    const vw = innerWidth, vh = innerHeight, port = vw / vh < .92, D = port ? WL_PORT : WL_LAND;
+    fit.classList.toggle('port', port); vc.style.width = D.W + 'px'; vc.style.height = D.H + 'px';
+    const k = Math.min(vw / D.W, vh / D.H); vc.style.transform = `translate(-50%,-50%) scale(${k})`;
+    const R = wlRing(n, D); els.forEach((el) => el.firstElementChild.style.setProperty('--s', R.av + 'px'));
+    L = { D, k, av: R.av, rx: R.rx, ry: R.ry, T: arc(R.rx, R.ry) };
+    if (window.FX) FX.welcome.geom({ cx: vw / 2 + (D.cx - D.W / 2) * k, cy: vh / 2 + (D.cy - D.H / 2) * k, rx: R.rx * k, ry: R.ry * k });
   };
-  orbitRaf = requestAnimationFrame(tick);
+  layout(); WL.rs = () => { if (!root.hidden) layout(); }; addEventListener('resize', WL.rs);
+  const t0 = performance.now();
+  const tick = (now) => {
+    if (!WL.on || root.hidden) return;
+    const t = (now - t0) / 1000, ph = reduce ? 0 : t * (L.T.tot / 70);
+    els.forEach((el, i) => {
+      const th = at(L.T, ph + i * L.T.tot / n);
+      let x = L.D.cx + L.rx * Math.sin(th), y = L.D.cy + L.ry * Math.cos(th), sc = .9 + .1 * (Math.cos(th) + 1) / 2, op = 1;
+      const p = reduce ? 1 : Math.min(1, Math.max(0, (t - .5 - i * .07) / 1.3));
+      if (p < 1) { const e = 1 - Math.pow(1 - p, 3), ang = (1 - e) * 2.4, dx = x - L.D.cx, dy = y - L.D.cy; x = L.D.cx + (Math.cos(ang) * dx - Math.sin(ang) * dy) * e; y = L.D.cy + (Math.sin(ang) * dx + Math.cos(ang) * dy) * e; sc *= .25 + .75 * e; op = Math.min(1, e * 1.6); }
+      el.style.transform = `translate(${(x - L.av / 2).toFixed(1)}px,${(y - L.av / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`; el.style.opacity = op.toFixed(2); el.style.zIndex = Math.round(y);
+    });
+    WL.raf = requestAnimationFrame(tick);
+  };
+  WL.raf = requestAnimationFrame(tick);
+  /* greeting types itself, quotes rotate word by word */
+  const hello = $('#wlHello'), msg = wlGreeting(); let ci = 0; hello.textContent = '';
+  if (reduce) hello.textContent = msg; else WL.tt = setInterval(() => { ci++; hello.textContent = msg.slice(0, ci); if (ci >= msg.length) clearInterval(WL.tt); }, 42);
+  const qEn = $('#qEn'), qBn = $('#qBn'), qBox = $('#wlQuote'), bar = $('#qBar');
+  const show = (i) => {
+    const [en, bn] = QUOTES[i % QUOTES.length], dur = 4600 + en.split(' ').length * 120;
+    qEn.className = 'q-en'; qEn.innerHTML = en.split(' ').map((w, k) => `<span class="w" style="--i:${k}">${esc(w)}</span>`).join(' ');
+    qBn.className = 'q-bn'; qBn.textContent = bn; void qBn.offsetWidth; qBn.classList.add('on');
+    qBox.style.setProperty('--qd', dur + 'ms'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+    if (reduce) return;
+    WL.qt = setTimeout(() => { qEn.classList.add('out'); qBn.classList.remove('on'); qBn.classList.add('out'); WL.qt = setTimeout(() => show(i + 1), 650); }, dur);
+  };
+  show(Math.floor(Math.random() * QUOTES.length));
+  const sd = $('#soldier'); if (!reduce) { WL.st = setInterval(() => { sd.classList.add('hi'); setTimeout(() => sd.classList.remove('hi'), 1200); }, 8000); setTimeout(() => sd.classList.add('hi'), 2600); }
+  if (window.FX) { FX.setFaces(ags.map((a) => photoUrl(a)).filter(Boolean)); FX.welcome.start(); setTimeout(() => { const g = FX.wl.geom; if (g) FX.welcome.burst(g.cx, g.cy, 70); }, 450); }
+}
+function stopWelcome() {
+  WL.on = false; cancelAnimationFrame(WL.raf); clearTimeout(WL.qt); clearInterval(WL.tt); clearInterval(WL.st);
+  if (WL.rs) { removeEventListener('resize', WL.rs); WL.rs = null; }
+  if (window.FX) FX.welcome.stop();
 }
 function showWelcome() {
-  $('#login').hidden = true; $('#welcome').hidden = false; $('#soldier').innerHTML = SOLDIER();
+  document.body.classList.add('wl-open'); $('#login').hidden = true; $('#welcome').hidden = false; $('#soldier').innerHTML = SOLDIER();
   $('#tlImg').addEventListener('error', (e) => { e.target.style.visibility = 'hidden'; }, { once: true });
-  startOrbit();
+  startWelcome();
 }
-function openDashboard() { cancelAnimationFrame(orbitRaf); $('#welcome').hidden = true; safe(() => sessionStorage.setItem('te-welcomed', '1')); showApp(); }
+function openDashboard() {
+  if (S.opening) return; S.opening = true;
+  const finish = () => { document.body.classList.remove('wl-open'); stopWelcome(); $('#welcome').hidden = true; S.opening = false; safe(() => sessionStorage.setItem('te-welcomed', '1')); showApp(); };
+  if (!window.FX || matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
+  const vc = $('#wlVc'), g = FX.wl.geom, tr = vc.style.transform;
+  FX.welcome.warp(1); if (g) FX.welcome.burst(g.cx, g.cy, 90);
+  vc.style.transition = 'transform .9s cubic-bezier(.6,0,.9,.5),opacity .8s ease-in'; vc.style.transform = tr + ' scale(1.35)'; vc.style.opacity = 0;
+  setTimeout(() => FX.run('glow', () => { vc.style.transition = ''; vc.style.opacity = ''; finish(); }), 600);
+}
 async function doLogin(id, pw, silent) {
   const btn = $('#lbtn'), err = $('#lerr'); err.hidden = true; btn.disabled = true; btn.firstElementChild.textContent = 'Signing in…';
   try {
     await signIn(id, pw);
     safe(() => sessionStorage.setItem('te-cred', JSON.stringify({ id, pw })));
-    if (silent || safe(() => sessionStorage.getItem('te-welcomed'))) showApp(); else showWelcome();
+    if (silent || safe(() => sessionStorage.getItem('te-welcomed'))) showApp(); else if (window.FX) FX.run('glow', showWelcome); else showWelcome();
   } catch (e) {
     if (!silent) { err.textContent = e.message === 'BAD' ? 'Incorrect ID or password.' : (e.message || 'Could not sign in.'); err.hidden = false; }
     safe(() => sessionStorage.removeItem('te-cred'));
@@ -939,7 +1093,7 @@ async function readSelected() {
       sumPunch = `<h4 style="margin:10px 0 4px">Punch file</h4><dl class="kv"><dt>Rows read</dt><dd>${pr.rows.length}</dd><dt>Rows for KPI agents</dt><dd>${pi.rows}</dd><dt>Agents with punches</dt><dd>${pi.agents} of ${data.agents.length}</dd><dt>Dates</dt><dd>${fD(pi.from)} to ${fD(pi.to)}</dd></dl>`;
     }
     const sp = Core.splitSalary(data); S.pending = sp.main; S.pendingSalary = sp.salary || S.salary || null;
-    if (sp.salary) sumKpi += `<h4 style="margin:10px 0 4px">Salary Data</h4><dl class="kv"><dt>Agents</dt><dd>${Object.keys(sp.salary.agents).length}</dd><dt>Period</dt><dd>${fD(sp.salary.from)} to ${fD(sp.salary.to)}</dd></dl>`;
+    if (sp.salary) { const one = (t, x) => (x ? `<dt>${t}</dt><dd>${Object.keys(x.agents).length} agents · ${fD(x.cycleFrom || x.from)} to ${fD(x.cycleTo || x.to)}${x.asOf ? ' (data till ' + fD(x.asOf) + ')' : ''}</dd>` : ''); sumKpi += `<h4 style="margin:10px 0 4px">Salary Data</h4><dl class="kv">${one('Previous cycle', sp.salary.prev)}${one('Current cycle (draft)', sp.salary.cur)}</dl>`; }
     if (f && data.punchInfo && data.punchInfo.file === 'Punch Data sheet') sumKpi += `<div class="t-mute">Punch Data sheet inside the workbook was read too (${data.punchInfo.rows} rows, ${data.punchInfo.agents} agents).</div>`;
     setUpState(`<div class="msg good">${f && f2 ? 'Both files read successfully.' : 'File read successfully.'}</div>${sumKpi}${sumPunch}${publishFields()}`);
     publishButtons();
@@ -1024,6 +1178,8 @@ function refreshDq() {
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.btn'); if (b) { const r = document.createElement('span'); const bb = b.getBoundingClientRect(), s = Math.max(bb.width, bb.height); r.className = 'ripple'; r.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - bb.left - s / 2}px;top:${e.clientY - bb.top - s / 2}px`; b.appendChild(r); setTimeout(() => r.remove(), 650); }
   const nav = e.target.closest('[data-sec]'); if (nav) { $('#side').classList.remove('open'); go({ sec: nav.dataset.sec, sub: null }); return; }
+  const kp = e.target.closest('[data-kpi]'); if (kp) { go({ sec: 'kpi', sub: kp.dataset.kpi }); return; }
+  if (e.target.closest('#tabMore')) { $('#side').classList.toggle('open'); return; }
   const sp = e.target.closest('[data-spick]'); if (sp) { go({ sec: 'salary', agent: sp.dataset.spick }); return; }
   if (e.target.closest('#salCsv')) { const q = (v) => '"' + String(v).replace(/"/g, '""') + '"'; const rows = [['Agent', 'EID', 'Skill', 'KPI bucket', 'Rate per hour', 'Payable hours', 'Basic pay', 'KPI pay', 'Total salary']].concat((S.salRows || []).map((x) => [x.a.name, x.a.id, x.sk, x.e.bucket, x.rate, x.hrs.toFixed(2), x.basic.toFixed(2), x.kpi.toFixed(2), x.total.toFixed(2)])); download('salary-summary.csv', '\ufeff' + rows.map((r) => r.map(q).join(',')).join('\n'), 'text/csv'); return; }
   const pk = e.target.closest('[data-pick]'); if (pk) { go({ sec: 'agent', agent: pk.dataset.pick, sub: null }); return; }
@@ -1047,7 +1203,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#pwSave')) { savePw(); return; }
   if (e.target.closest('#menuBtn')) { $('#side').classList.toggle('open'); return; }
   if (e.target.closest('#themeBtn')) { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; safe(() => localStorage.setItem('te-theme', r.dataset.theme)); return; }
-  if (!e.target.closest('#side') && !e.target.closest('#menuBtn')) $('#side').classList.remove('open');
+  if (!e.target.closest('#side') && !e.target.closest('#menuBtn') && !e.target.closest('#tabMore')) $('#side').classList.remove('open');
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modal')) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('click') && e.target.dataset.sub) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('input', (e) => {
@@ -1058,7 +1214,8 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'agentSel') { go({ agent: t.value, sub: null }); return; }
+  if (t.id === 'agentSel') { go({ agent: t.value, sub: S.sec === 'kpi' ? S.sub : null }); return; }
+  if (t.id === 'salMode') { S.salMode = t.value; render(true); return; }
   if (t.id === 'monthSel') { S.month = t.value; render(true); return; }
   if (t.id === 'attOnly') { S.att.only = t.checked; render(true); return; }
   if (t.dataset && t.dataset.dq === 'val') { (S.dq.sd = S.dq.sd || {}).val = t.value; refreshDq(); return; }

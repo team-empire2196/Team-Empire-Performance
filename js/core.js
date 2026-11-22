@@ -294,6 +294,7 @@ const Core = (() => {
     /* Escalation & FCR */
     const ef = S['Escalation Accuracy & FCR'];
     if (ef) {
+      for (let r = 0; r < Math.min(ef.length, 3); r++) { const t = ef[r] && ef[r][0]; if (t && /escalation/i.test(String(t)) && /till|upto|up to/i.test(String(t))) { notes.esc = String(t).trim(); break; } }
       const hr = findRow(ef, (r) => r.some((x) => norm(x) === 'fcrcount'));
       if (hr >= 0) {
         const ci = {}; ef[hr].forEach((x, i) => { ci[norm(x)] = i; });
@@ -442,29 +443,63 @@ const Core = (() => {
       agents.forEach((a) => a.escRows.sort((x, y) => (y.t || 0) - (x.t || 0)));
     } else warnings.push('Sheet "Escalation Accuracy Raw" not found: escalation invalid-ticket details will be empty.');
 
-    /* Salary Data: daily payable hours + the KPI bucket of the previous month (right-hand table) */
+    /* Salary Data: two blocks side by side. "Previous Cycle" = Date, ID, Skill, Name, Roster, Payroll Updated, Break, Total (+ a KPI-bucket table of the month before),
+       "Current Running Cycle" = the same columns for the cycle that is still running. Everything is found by its header text, so a moved column does not break the reader. */
     let salary = null;
     const sS = S['Salary Data'];
     if (sS && sS.length) {
-      const hr = findRow(sS, (r) => norm(r[0]) === 'date' && norm(r[1]) === 'id', 10);
-      let kr = -1; for (let r = 0; r < Math.min(sS.length, 10); r++) if (sS[r] && norm(sS[r][11]) === 'id' && norm(sS[r][14]) === 'agentskill') { kr = r; break; }
+      const MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const hr = findRow(sS, (r) => r.some((v, c) => norm(v) === 'date' && norm(r[c + 1]) === 'id'), 10);
+      const hdr = hr >= 0 ? sS[hr] : [];
+      const blocks = []; hdr.forEach((v, c) => { if (norm(v) === 'date' && norm(hdr[c + 1]) === 'id') blocks.push(c); });
+      const colOf = (c0, key, dflt) => { for (let c = c0; c < c0 + 10; c++) if (norm(hdr[c]) === key) return c; return c0 + dflt; };
+      /* KPI bucket of the previous month (small table: ID, Name, TL, Agent-Skill, Category) */
+      let kr = -1, kc = -1, kTitle = '';
+      for (let r = 0; r < Math.min(sS.length, 12) && kr < 0; r++) { const x = sS[r] || []; for (let c = 0; c < x.length; c++) if (norm(x[c]) === 'id' && norm(x[c + 1]) === 'name' && norm(x[c + 2]) === 'tl') { kr = r; kc = c; break; } }
       const cat = new Map();
-      if (kr >= 0) for (let r = kr + 1; r < sS.length; r++) { const x = sS[r]; if (!x || x[11] == null || x[11] === '') break; cat.set(idKey(x[11]), { skill: String(x[14] || '').trim(), bucket: String(x[15] || '').trim().toUpperCase() }); }
-      const hrs = (v) => (isNum(v) ? Math.round(v * 24 * 10000) / 10000 : 0);
-      const sa = {}; let dmin = null, dmax = null;
-      if (hr >= 0) for (let r = hr + 1; r < sS.length; r++) {
-        const x = sS[r]; if (!x || !isNum(x[0])) continue;
-        const a = byId.get(idKey(x[1])); if (!a) continue;
-        const e = sa[a.id] || (sa[a.id] = { id: a.id, name: a.name, skill: (cat.get(a.id) || {}).skill || '', bucket: (cat.get(a.id) || {}).bucket || '', rows: [] });
-        e.rows.push([Math.floor(x[0]), String(x[4] == null ? '' : x[4]).trim(), hrs(x[5]), hrs(x[6]), hrs(x[7])]);
-        dmin = dmin == null ? x[0] : Math.min(dmin, x[0]); dmax = dmax == null ? x[0] : Math.max(dmax, x[0]);
+      if (kr >= 0) {
+        const hx = sS[kr]; let sk = kc + 3, bk = kc + 4;
+        for (let c = kc; c < kc + 8; c++) { const n = norm(hx[c]); if (n === 'agentskill' || n === 'skill') sk = c; if (n === 'category' || n === 'bucket' || n === 'grade') bk = c; }
+        for (let r = 0; r < kr; r++) { const t = sS[r] && sS[r][kc]; if (t && /kpi/i.test(String(t))) kTitle = String(t); }
+        for (let r = kr + 1; r < sS.length; r++) { const x = sS[r]; if (!x || x[kc] == null || x[kc] === '') break; cat.set(idKey(x[kc]), { skill: String(x[sk] || '').trim(), bucket: String(x[bk] || '').trim().toUpperCase() }); }
       }
-      agents.forEach((a) => { const c = cat.get(a.id); if (c && !sa[a.id]) sa[a.id] = { id: a.id, name: a.name, skill: c.skill, bucket: c.bucket, rows: [] }; });
-      Object.values(sa).forEach((e) => e.rows.sort((p, q) => p[0] - q[0]));
-      if (Object.keys(sa).length) salary = { from: dmin, to: dmax, base: { Premium: 57, Mass: 50 }, bonus: { 'A+': 10, A: 10, B: 8, C: 5, D: 0 }, agents: sa, kpiMonth: 'Previous month KPI bucket' };
+      const hrs = (v) => (isNum(v) ? Math.round(v * 24 * 10000) / 10000 : 0);
+      const toSer = (t) => Math.round((t - Date.UTC(1899, 11, 30)) / 864e5);
+      /* a salary cycle runs from the 16th of one month to the 15th of the next */
+      const cycleOf = (d0) => { const dt = serialDate(d0); const y = dt.getUTCFullYear(); let m = dt.getUTCMonth(); if (dt.getUTCDate() < 16) m -= 1; return { from: toSer(Date.UTC(y, m, 16)), to: toSer(Date.UTC(y, m + 1, 15)), m: new Date(Date.UTC(y, m, 16)).getUTCMonth() }; };
+      const readBlock = (c0) => {
+        const ci = { d: c0, id: colOf(c0, 'id', 1), sk: colOf(c0, 'skill', 2), ro: colOf(c0, 'roster', 4), pu: colOf(c0, 'payrollupdated', 5), br: colOf(c0, 'break', 6), tt: colOf(c0, 'total', 7) };
+        const out = {}; let dmin = null, dmax = null, asOf = null;
+        for (let r = hr + 1; r < sS.length; r++) {
+          const x = sS[r]; if (!x || !isNum(x[ci.d])) continue;
+          const a = byId.get(idKey(x[ci.id])); if (!a) continue;
+          const d = Math.floor(x[ci.d]), tot = hrs(x[ci.tt]);
+          const e = out[a.id] || (out[a.id] = { sheetSkill: '', rows: [] });
+          if (!e.sheetSkill && x[ci.sk]) e.sheetSkill = String(x[ci.sk]).trim();
+          e.rows.push([d, String(x[ci.ro] == null ? '' : x[ci.ro]).trim(), hrs(x[ci.pu]), hrs(x[ci.br]), tot]);
+          dmin = dmin == null ? d : Math.min(dmin, d); dmax = dmax == null ? d : Math.max(dmax, d);
+          if (tot > 0) asOf = asOf == null ? d : Math.max(asOf, d);
+        }
+        Object.values(out).forEach((e) => e.rows.sort((p, q) => p[0] - q[0]));
+        return { out, dmin, dmax, asOf };
+      };
+      const mm = /kpi\s+of\s+([a-z]+)\s+for\s+([a-z]+)/i.exec(kTitle);
+      const prevB = blocks.length ? readBlock(blocks[0]) : null, curB = blocks.length > 1 ? readBlock(blocks[1]) : null;
+      let prev = null, cur = null;
+      if (prevB && prevB.dmin != null) {
+        const cy = cycleOf(prevB.dmin), ag = {};
+        agents.forEach((a) => { const b = prevB.out[a.id], c = cat.get(a.id); if (!b && !c) return; ag[a.id] = { id: a.id, name: a.name, skill: (c && c.skill) || (b && b.sheetSkill) || '', bucket: (c && c.bucket) || '', rows: b ? b.rows : [] }; });
+        prev = { from: prevB.dmin, to: prevB.dmax, asOf: prevB.asOf, cycleFrom: cy.from, cycleTo: cy.to, kpiMonth: mm ? mm[1] : MN[cy.m], salaryMonth: mm ? mm[2] : MN[(cy.m + 1) % 12], agents: ag };
+      }
+      if (curB && curB.dmin != null) {
+        const cy = cycleOf(curB.dmin), ag = {};
+        /* draft rule: everyone is paid at the Premium rate, and the KPI part uses the CURRENT month's KPI grade of the KPI sheet */
+        agents.forEach((a) => { const b = curB.out[a.id]; ag[a.id] = { id: a.id, name: a.name, skill: 'Premium', sheetSkill: (b && b.sheetSkill) || '', bucket: String(a.cat || a.bucket || '').trim().toUpperCase(), kpi: isNum(a.final) ? a.final : null, rows: b ? b.rows : [] }; });
+        cur = { from: curB.dmin, to: curB.dmax, asOf: curB.asOf, cycleFrom: cy.from, cycleTo: cy.to, kpiMonth: MN[cy.m], salaryMonth: MN[(cy.m + 1) % 12], draft: true, agents: ag };
+      }
+      if (prev || cur) salary = { v: 2, base: { Premium: 57, Mass: 50 }, bonus: { 'A+': 10, A: 10, B: 8, C: 5, D: 0 }, prev, cur };
       else warnings.push('Sheet "Salary Data" was found but no KPI agents matched.');
     }
-
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const d0 = dayDates[0];
     return {

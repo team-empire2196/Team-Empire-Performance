@@ -9,8 +9,9 @@
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="css/base.css?v=7">
-<link rel="stylesheet" href="css/extra.css?v=7">
+<link rel="stylesheet" href="css/base.css?v=9">
+<link rel="stylesheet" href="css/extra.css?v=9">
+<link rel="stylesheet" href="css/fx.css?v=9">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -39,6 +40,7 @@
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
 </defs></svg>
 
+<canvas id="bgfx" aria-hidden="true"></canvas>
 <!-- LOGIN GATE -->
 <section class="login" id="login" aria-label="Sign in">
   <div class="chase chase-bg" data-chase></div>
@@ -57,16 +59,17 @@
   </form>
 </section>
 
-<!-- WELCOME (after sign-in) -->
+<!-- WELCOME (after sign-in): fits one screen at 100% zoom (scaled design canvas) -->
 <section class="login welcome" id="welcome" aria-label="Welcome" hidden>
-  <div class="birds" data-birds aria-hidden="true"></div>
-  <div class="wl-in">
-    <div class="stage" id="stage"><div class="orbit" id="orbit"></div>
-      <div class="tl-ph"><span class="tl-glow"></span><img id="tlImg" src="photos/tl.jpg" alt="Team Leader"></div></div>
-    <div class="tl-cap"><small>Team Leader Of Team Empire</small><b class="tl-name" aria-label="MD ARIFUL MOWLA NELOY">𝓜𝓓 𝓐𝓡𝓘𝓕𝓤𝓛 𝓜𝓞𝓦𝓛𝓐 𝓝𝓔𝓛𝓞𝓨</b></div>
-    <button class="btn primary open-dash" id="openDash" type="button">Open Dashboard</button>
-    <div class="wel-row"><div class="soldier" id="soldier"></div><div><h2>Welcome to Team Empire</h2><p>Better quality, stronger performance</p></div></div>
-  </div>
+  <canvas id="wlfx" aria-hidden="true"></canvas>
+  <div class="wl-fit" id="wlFit"><div class="wl-vc" id="wlVc">
+    <div class="orbit" id="orbit"></div>
+    <div class="tl-ph" id="tlPh"><span class="tl-halo"></span><span class="tl-ring"></span><span class="tl-ring r2"></span><span class="tl-dot"></span><img id="tlImg" src="photos/tl.jpg" alt="Team Leader"></div>
+    <div class="tl-cap"><small>Team Leader Of Team Empire</small><b class="tl-name" id="tlName" aria-label="MD ARIFUL MOWLA NELOY">&#x1D4DC;&#x1D4D3; &#x1D4D0;&#x1D4E1;&#x1D4D8;&#x1D4D5;&#x1D4E4;&#x1D4DB; &#x1D4DC;&#x1D4DE;&#x1D4E6;&#x1D4DB;&#x1D4D0; &#x1D4DD;&#x1D4D4;&#x1D4DB;&#x1D4DE;&#x1D4E8;</b></div>
+    <button class="btn primary open-dash" id="openDash" type="button"><span>Open Dashboard</span><i class="chev"></i></button>
+    <div class="wl-left"><div class="soldier" id="soldier"></div><div class="wl-welcome"><span class="hello" id="wlHello"></span><h2>Welcome to Team Empire</h2><p id="wlLine">Better quality, stronger performance</p></div></div>
+    <div class="wl-quote" id="wlQuote" aria-live="polite"><div class="q-en" id="qEn"></div><div class="q-bn" id="qBn"></div><div class="q-bar"><i id="qBar"></i></div></div>
+  </div></div>
 </section>
 
 <!-- APP -->
@@ -88,12 +91,15 @@
     </header>
     <main class="content" id="content"></main>
   </div>
+  <nav class="tabbar" id="tabbar" aria-label="Quick menu"></nav>
 </div>
 <div id="tip" role="tooltip"></div>
 <div id="modalRoot"></div>
 
 <script src="js/jszip.min.js"></script>
-<script src="js/core.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/core.js?v=9"></script>
+<script src="js/fx.js?v=9"></script>
+<script src="js/fx-scenes.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>

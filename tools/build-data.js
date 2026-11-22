@@ -24,7 +24,7 @@ const Core = require(path.join(__dirname, '..', 'js', 'core.js'));
   const users = [{ id: adminId, pass: adminPass }].concat(data.agents.filter((a) => a.vdi).map((a) => ({ id: a.vdi, pass: agentPass })));
   const sp = Core.splitSalary(data); const salary = sp.salary || (prev && prev.salaryData) || null;
   const vault = await Core.vaultSeal(sp.main, users);
-  if (salary) { fs.writeFileSync(path.join(path.dirname(out), 'salary.enc.json'), JSON.stringify(await Core.vaultSeal(salary, [{ id: adminId, pass: adminPass }]))); console.log('Salary data sealed for the admin only:', Object.keys(salary.agents).length, 'agents'); }
+  if (salary) { fs.writeFileSync(path.join(path.dirname(out), 'salary.enc.json'), JSON.stringify(await Core.vaultSeal(salary, [{ id: adminId, pass: adminPass }]))); console.log('Salary data sealed for the admin only: previous cycle', salary.prev ? Object.keys(salary.prev.agents).length : 0, 'agents · current draft', salary.cur ? Object.keys(salary.cur.agents).length : 0, 'agents'); }
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(vault));
   const rows = [['Agent', 'EID', 'Login ID (Genex ID)', 'Password']].concat(data.agents.map((a) => [a.name, a.id, a.vdi || '(no Genex ID found)', a.vdi ? agentPass : '']));
